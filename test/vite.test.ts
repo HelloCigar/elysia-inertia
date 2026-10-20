@@ -117,6 +117,21 @@ describe('vite in production', () => {
 		expect(res.status).toBe(200)
 	})
 
+	it('warns that a relative base breaks on nested routes', () => {
+		const warn = console.warn
+		const messages: string[] = []
+		console.warn = (message: string) => messages.push(message)
+		try {
+			viteTags({ entry: 'src/client/app.tsx', dev: false, manifest: manifestFile, base: './' })
+			viteTags({ entry: 'src/client/app.tsx', dev: false, manifest: manifestFile, base: '/build/' })
+			viteTags({ entry: 'src/client/app.tsx', dev: true, base: './' })
+		} finally {
+			console.warn = warn
+		}
+		expect(messages).toHaveLength(1)
+		expect(messages[0]).toContain('vite.base "./" is relative')
+	})
+
 	it('names a missing entry or manifest', () => {
 		expect(() => viteTags({ entry: 'src/nope.tsx', dev: false, manifest: manifestFile })()).toThrow(
 			'"src/nope.tsx" is not an entry'

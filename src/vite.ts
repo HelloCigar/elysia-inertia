@@ -149,6 +149,13 @@ export const viteTags = (options: ViteOptions): (() => string) => {
 		return () => tags
 	}
 
+	// `./assets/app.js` resolves against the page's path, so it breaks on
+	// nested routes like `/users/1`
+	if (options.base === '' || options.base?.startsWith('.'))
+		console.warn(
+			`[inertia] vite.base "${options.base}" is relative, so assets won't load on nested routes; use an absolute base such as "/build/"`
+		)
+
 	const manifestPath = options.manifest ?? DEFAULT_MANIFEST
 	return cachedByMtime(manifestPath, (content) =>
 		buildTags(JSON.parse(content.toString('utf8')) as Manifest, options, manifestPath)

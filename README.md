@@ -47,6 +47,10 @@ manifest's hash, so a stale client gets a 409 full reload. Options: `entry`
 `http://localhost:5173`), `manifest` (default `dist/.vite/manifest.json`),
 `base` (Vite's `base`, default `/`). An explicit `version` wins.
 
+Use an absolute `base` (`/build/` or a CDN URL). A relative one (`./`) makes
+the asset URLs resolve against each page's path, so they break on nested
+routes like `/users/1`; the plugin warns about it in production.
+
 The tags go in `head`, so a custom `rootView` still gets them:
 
 ```ts
