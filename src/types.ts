@@ -121,3 +121,26 @@ export type RegisteredApp = Register extends {
 }
 	? App
 	: { '~Routes': {} }
+
+type Leaf = Date | Blob | ((...args: never[]) => unknown)
+
+/**
+ * A form's field keys as dot paths (`address.city`, `tags.0`), the keys
+ * validation errors use and Inertia's `form.errors` reads
+ */
+export type FieldPath<T, Depth extends 1[] = []> = Depth['length'] extends 8
+	? string
+	: T extends Leaf
+		? never
+		: T extends readonly (infer Item)[]
+			? `${number}` | `${number}.${FieldPath<NonNullable<Item>, [...Depth, 1]>}`
+			: T extends object
+				? string extends keyof T
+					? string
+					: {
+							[K in keyof T & string]: K | `${K}.${FieldPath<NonNullable<T[K]>, [...Depth, 1]>}`
+						}[keyof T & string]
+				: never
+
+/** Validation errors for a form: a message per field path */
+export type FormErrors<Body = Props> = Partial<Record<FieldPath<Body>, string>>

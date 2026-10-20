@@ -15,6 +15,7 @@ import { backUrl, pageUrl, parseInertiaRequest } from './request'
 import { isValidationError, validationErrors } from './validation'
 import type {
 	ComponentName,
+	FormErrors,
 	InertiaRequest,
 	InertiaResponse,
 	InertiaShared,
@@ -103,9 +104,10 @@ export class InertiaContext<Shared extends Props = {}> {
 
 	/**
 	 * Validation errors for the next rendered page, usually followed by
-	 * `back()`. Namespaced under the request's `X-Inertia-Error-Bag`, or `bag`
+	 * `back()`. Namespaced under the request's `X-Inertia-Error-Bag`, or `bag`.
+	 * Pass the body type to check the keys: `inertia.errors<typeof body>(...)`
 	 */
-	errors(errors: Record<string, string>, bag?: string): this {
+	errors<Body = Props>(errors: FormErrors<Body>, bag?: string): this {
 		this.#pending.errors = { ...this.#pending.errors, ...errors }
 		this.#pending.errorBag = bag ?? this.request.errorBag
 		this.#store.write(this.#flashContext, this.#pending)

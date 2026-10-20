@@ -130,8 +130,12 @@ that field's message.
 ```ts
 .post('/users', { body: t.Object({ name: t.String({ minLength: 2, error: 'Too short.' }) }) },
 	({ inertia, body }) => inertia.flash('toast', 'Saved').back())
-.put('/users/:id/email', ({ inertia }) => inertia.errors({ email: 'Taken.' }).back())
+.put('/users/:id/email', { body: t.Object({ email: t.String() }) },
+	({ inertia, body }) => inertia.errors<typeof body>({ email: 'Taken.' }).back())
 ```
+
+`errors()` accepts any keys; pass the body type to check them against the
+form's dot paths (`FieldPath<Body>`), the same keys `form.errors` reads.
 
 Errors and flash wait in a cookie (`inertia_flash`) until the next rendered
 page, so they survive the redirect and a 409 version reload. The cookie is
