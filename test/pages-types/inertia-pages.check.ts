@@ -2,7 +2,6 @@
 // routes render. Do not edit.
 import type { CheckPage } from 'elysia-inertia/client'
 
-type _0 = CheckPage<"home", typeof import("./pages/home").default>
-type _1 = CheckPage<"users/index", typeof import("./pages/users/index").default>
-
-export {}
+export type _0 = CheckPage<"about", typeof import("./pages/about").default>
+export type _1 = CheckPage<"home", typeof import("./pages/home").default>
+export type _2 = CheckPage<"users/index", typeof import("./pages/users/index").default>

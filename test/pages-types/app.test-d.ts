@@ -12,6 +12,8 @@ const app = new Elysia()
 	.use(inertia({ share: () => ({ appName: 'demo' }) }))
 	.get('/', { inertia: 'home' }, ({ render }) => render())
 	.get('/users', ({ inertia }) => inertia.render('users/index', { users: [{ id: 1, name: 'Ada' }] }))
+	// A page prop overrides a shared one of the same name, as at runtime
+	.get('/about', ({ inertia }) => inertia.render('about', { appName: 2 }))
 	// @ts-expect-error no page file for this name
 	.get('/gone', { inertia: 'users/show' }, ({ render }) => render())
 	// @ts-expect-error no page file for this name
@@ -23,8 +25,9 @@ const expect = <T extends true>() => {}
 // A page gets its own props, the shared ones and errors
 expect<Equal<
 	PageComponentProps<'users/index'>,
-	{ users: { id: number; name: string }[] } & { appName: string } & { errors: Record<string, string> }
+	{ errors: Record<string, string>; appName: string; users: { id: number; name: string }[] }
 >>()
+expect<Equal<PageComponentProps<'about'>['appName'], number>>()
 
 definePage('users/index', ({ users, appName }) => {
 	users[0]?.name satisfies string | undefined
@@ -37,10 +40,20 @@ definePage('users/index', ({ users, appName }) => {
 definePage('users/show', () => null)
 
 // What the generated check file asserts about each page file
-type Fine = CheckPage<'users/index', (props: { users: { name: string }[] }) => null>
+export type Fine = CheckPage<'users/index', (props: { users: { name: string }[] }) => null>
 // @ts-expect-error the page wants a prop its route doesn't send
-type Wrong = CheckPage<'users/index', (props: { posts: string[] }) => null>
+export type Wrong = CheckPage<'users/index', (props: { posts: string[] }) => null>
 // Pages no typed route renders are not checked
-type Unrouted = CheckPage<'drafts', (props: { anything: 1 }) => null>
+export type Unrouted = CheckPage<'drafts', (props: { anything: 1 }) => null>
 // @ts-expect-error definePage() named another page than its file
-type Misnamed = CheckPage<'users/index', ReturnType<typeof definePage<'home', () => null>>>
+export type Misnamed = CheckPage<'users/index', ReturnType<typeof definePage<'home', () => null>>>
+// Class components are checked by their constructor's props
+declare class Listing {
+	constructor(props: { users: { id: number }[] })
+}
+export type ClassPage = CheckPage<'users/index', typeof Listing>
+declare class Needy {
+	constructor(props: { posts: string[] })
+}
+// @ts-expect-error the class wants a prop its route doesn't send
+export type NeedyPage = CheckPage<'users/index', typeof Needy>

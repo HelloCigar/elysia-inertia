@@ -117,12 +117,17 @@ export const createRoutes = <App extends AnyApp = RegisteredApp>(): Routes<App> 
 /** The page names the registered app renders (see `Register`) */
 export type PageName = keyof InferPages<RegisteredApp> & string
 
+// Later props win, as when `render()` spreads them
+type Override<A, B> = { [K in keyof (Omit<A, keyof B> & B)]: (Omit<A, keyof B> & B)[K] } & {}
+
 /**
- * What a page component receives: its own props plus the shared ones.
- * Inertia types `errors` flat, so this does too
+ * What a page component receives: errors, the shared props, then its own,
+ * each overriding the last. Inertia types `errors` flat, so this does too
  */
-export type PageComponentProps<Name extends PageName> = PageProps<Name> &
-	InertiaConfigOf['sharedPageProps'] & { errors: Record<string, string> }
+export type PageComponentProps<Name extends PageName> = Override<
+	Override<{ errors: Record<string, string> }, InertiaConfigOf['sharedPageProps']>,
+	PageProps<Name>
+>
 
 /** A component that accepts every prop its routes render */
 export type PageComponent<Name extends PageName> = (
@@ -152,6 +157,9 @@ export const definePage = <
 	component: Component
 ): Component & PageBrand<Name> => component
 
+/** A function or class component taking `P` */
+type AcceptsProps<P> = ((props: P) => unknown) | (new (props: P) => unknown)
+
 /**
  * Used by the generated `inertia-pages.check.ts`: a page file's default
  * export must accept its routes' props and, from `definePage`, name the
@@ -160,6 +168,6 @@ export const definePage = <
  */
 export type CheckPage<
 	Name extends string,
-	Component extends (Name extends PageName ? PageComponent<Name> : (props: never) => unknown) &
+	Component extends AcceptsProps<Name extends PageName ? PageComponentProps<Name> : never> &
 		PageBrand<Name>
 > = Component
