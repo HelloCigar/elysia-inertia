@@ -62,8 +62,17 @@ describe('initial load (HTML shell)', () => {
 	it('escapes every / so prop data cannot close the script element', async () => {
 		const html = await (await visit(createApp(), '/xss')).text()
 		expect(html).not.toContain('</script><script>alert')
-		expect(html).toContain('<\\/script><script>alert(1)<\\/script>')
+		expect(html).toContain('\\u003c\\/script>\\u003cscript>alert(1)\\u003c\\/script>')
 		expect(pageFromHtml(html).props.html).toBe('</script><script>alert(1)</script>')
+	})
+
+	it('escapes < so <!--<script in prop data cannot swallow the closing tag', async () => {
+		const app = new Elysia()
+			.use(inertia({ version: 'v1' }))
+			.get('/comment', { inertia: 'comment' }, ({ render }) => render({ body: '<!--<script>' }))
+		const html = await (await visit(app as never, '/comment')).text()
+		expect(html).not.toContain('<!--')
+		expect(pageFromHtml(html).props.body).toBe('<!--<script>')
 	})
 
 	it('uses a custom mount id and root view', async () => {
@@ -92,6 +101,16 @@ describe('initial load (HTML shell)', () => {
 		const fallback = await (await visit(failing, '/users')).text()
 		expect((reported as Error).message).toBe('boom')
 		expect(pageFromHtml(fallback).component).toBe('users/index')
+	})
+
+	it('falls back to the client when SSR hangs past the timeout', async () => {
+		let reported: unknown
+		const hanging = createApp({
+			ssr: { render: () => new Promise(() => {}), timeout: 20, onError: (error) => { reported = error } }
+		})
+		const html = await (await visit(hanging, '/users')).text()
+		expect((reported as Error).name).toBe('TimeoutError')
+		expect(pageFromHtml(html).component).toBe('users/index')
 	})
 })
 

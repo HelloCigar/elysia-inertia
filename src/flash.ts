@@ -61,8 +61,15 @@ export interface CookieFlashStoreOptions {
 const readCookie = (request: Request, name: string) => {
 	for (const pair of request.headers.get('cookie')?.split(';') ?? []) {
 		const index = pair.indexOf('=')
-		if (pair.slice(0, index).trim() === name)
-			return decodeURIComponent(pair.slice(index + 1).trim())
+		if (pair.slice(0, index).trim() !== name) continue
+
+		// A malformed value must not crash the page; it then fails to parse
+		const value = pair.slice(index + 1).trim()
+		try {
+			return decodeURIComponent(value)
+		} catch {
+			return value
+		}
 	}
 }
 

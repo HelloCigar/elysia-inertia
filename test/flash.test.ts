@@ -177,4 +177,12 @@ describe('review fixes (step 5)', () => {
 		).json()
 		expect(page.props.errors).toEqual({})
 	})
+
+	it('ignores a malformed cookie instead of failing the page', async () => {
+		const res = await createApp().handle(
+			new Request('http://localhost/users/create', { headers: { ...inertiaHeaders, cookie: 'inertia_flash=%E0' } })
+		)
+		expect(res.status).toBe(200)
+		expect((await res.json()).props.errors).toEqual({})
+	})
 })

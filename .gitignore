@@ -1,3 +1,8 @@
 node_modules
 *.log
 .DS_Store
+
+# Agent skills
+.agents/
+.claude/skills/
+skills-lock.json

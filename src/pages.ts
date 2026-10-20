@@ -74,7 +74,9 @@ export const generatePages = (options: PagesOptions = {}) => {
 		console.warn(`[inertia] No pages found in ${resolve(dir)}; page names are not checked`)
 
 	const content = pagesDeclaration(pages)
-	if (existsSync(dts) && readFileSync(dts, 'utf8') === content) return false
+	// Git may check the committed file out with CRLF; that is not a change
+	if (existsSync(dts) && readFileSync(dts, 'utf8').replace(/\r\n/g, '\n') === content)
+		return false
 
 	mkdirSync(dirname(resolve(dts)), { recursive: true })
 	writeFileSync(dts, content)

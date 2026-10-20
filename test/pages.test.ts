@@ -27,6 +27,10 @@ describe('page discovery', () => {
 		expect(readFileSync(options.dts, 'utf8')).toContain('"users/index": true')
 		expect(generatePages(options)).toBe(false)
 
+		// A CRLF checkout of the same declaration is not a change
+		writeFileSync(options.dts, readFileSync(options.dts, 'utf8').replace(/\n/g, '\r\n'))
+		expect(generatePages(options)).toBe(false)
+
 		writeFileSync(join(options.dir, 'about.tsx'), '')
 		expect(generatePages(options)).toBe(true)
 		expect(readFileSync(options.dts, 'utf8')).toContain('"about": true')

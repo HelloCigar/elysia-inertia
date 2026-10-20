@@ -2,10 +2,12 @@ import type { PageObject, RootViewContext, SSRResult } from './types'
 
 /**
  * Serialize the page for a `<script>` body. Every `/` becomes `\/` so prop
- * data can't close the element early (protocol section 5)
+ * data can't close the element early (protocol section 5), and every `<`
+ * becomes `<` so `<!--<script` can't keep the real `</script>` from
+ * closing it
  */
 export const serializePage = (page: PageObject) =>
-	JSON.stringify(page).replace(/\//g, '\\/')
+	JSON.stringify(page).replace(/\//g, '\\/').replace(/</g, '\\u003c')
 
 /** The payload script plus the empty mount element */
 export const pageBody = (page: PageObject, id = 'app') =>
@@ -24,27 +26,44 @@ export interface SSROptions {
 	url?: string
 	/** Called when SSR fails; the page then renders client-side */
 	onError?: (error: unknown, page: PageObject) => void
+	/** Give up on SSR after this many milliseconds and render client-side (default 5000) */
+	timeout?: number
+}
+
+const ssrRequest = async (
+	page: PageObject,
+	options: SSROptions,
+	signal: AbortSignal
+): Promise<SSRResult> => {
+	if (options.render) return await options.render(page)
+
+	const response = await fetch(
+		options.url ?? 'http://127.0.0.1:13714/render',
+		{
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(page),
+			signal
+		}
+	)
+	if (!response.ok)
+		throw new Error(`SSR server responded ${response.status}`)
+
+	return (await response.json()) as SSRResult
 }
 
 export const renderSSR = async (
 	page: PageObject,
 	options: SSROptions
 ): Promise<SSRResult | undefined> => {
+	// A hung SSR server or render must not hold up the page
+	const signal = AbortSignal.timeout(options.timeout ?? 5000)
+	const timedOut = new Promise<never>((_, reject) =>
+		signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+	)
+
 	try {
-		if (options.render) return await options.render(page)
-
-		const response = await fetch(
-			options.url ?? 'http://127.0.0.1:13714/render',
-			{
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify(page)
-			}
-		)
-		if (!response.ok)
-			throw new Error(`SSR server responded ${response.status}`)
-
-		return (await response.json()) as SSRResult
+		return await Promise.race([ssrRequest(page, options, signal), timedOut])
 	} catch (error) {
 		;(options.onError ?? ((error) => console.error('[inertia] SSR failed', error)))(
 			error,
