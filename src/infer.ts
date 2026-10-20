@@ -82,14 +82,6 @@ export type InferPages<App extends { '~Routes': unknown }> =
 		: never
 
 /**
- * One page's props as its component receives them, without shared props
- * (`usePage` adds those from `InertiaConfig`)
- *
- * ```ts
- * type Props = PagePropsOf<typeof app, 'users/index'>
- * ```
- */
-/**
  * One page's props for the registered app (see `Register`)
  *
  * ```ts
@@ -99,6 +91,14 @@ export type InferPages<App extends { '~Routes': unknown }> =
 export type PageProps<Component extends keyof InferPages<RegisteredApp>> =
 	Serialized<InferPages<RegisteredApp>[Component]>
 
+/**
+ * One page's props as its component receives them, without shared props
+ * (`usePage` adds those from `InertiaConfig`)
+ *
+ * ```ts
+ * type Props = PagePropsOf<typeof app, 'users/index'>
+ * ```
+ */
 export type PagePropsOf<
 	App extends { '~Routes': unknown },
 	Component extends keyof InferPages<App>

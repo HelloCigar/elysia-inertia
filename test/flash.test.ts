@@ -54,7 +54,7 @@ describe('validation errors (spec 17)', () => {
 		const visit = session(createApp())
 		const res = await visit('/users', { method: 'POST', body: badUser })
 		expect(res.status).toBe(303)
-		expect(res.headers.get('location')).toBe('http://localhost/users/create')
+		expect(res.headers.get('location')).toBe('/users/create')
 
 		const page = await (await visit('/users/create')).json()
 		expect(page.props.errors).toEqual({

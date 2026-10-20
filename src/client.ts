@@ -57,7 +57,8 @@ const buildUrl = (
 	options: { params?: object; query?: object } = {}
 ) => {
 	const params = (options.params ?? {}) as Record<string, unknown>
-	const url = path.replace(/:(\w+)\??|\*/g, (match, name?: string) => {
+	// A param name runs to the next `/`, like Elysia's router (`:user-id`)
+	const url = path.replace(/:([^/?]+)\??|\*/g, (match, name?: string) => {
 		const value = params[name ?? '*']
 		if (value === undefined || value === null) {
 			if (match.endsWith('?')) return ''

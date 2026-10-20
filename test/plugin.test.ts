@@ -217,10 +217,18 @@ describe('redirects', () => {
 	})
 
 	it('goes back to the referer', async () => {
-		const res = await visit(createApp(), '/back', { referer: 'http://localhost/form' }, 'POST')
-		expect(res.headers.get('location')).toBe('http://localhost/form')
+		const res = await visit(createApp(), '/back', { referer: 'http://localhost/form?step=2' }, 'POST')
+		expect(res.headers.get('location')).toBe('/form?step=2')
 		const fallback = await visit(createApp(), '/back', {}, 'POST')
 		expect(fallback.headers.get('location')).toBe('/')
+	})
+
+	it('never goes back off-site', async () => {
+		const back = async (referer: string) =>
+			(await visit(createApp(), '/back', { referer }, 'POST')).headers.get('location')
+		expect(await back('https://evil.example/phish')).toBe('/phish')
+		expect(await back('https://evil.example//evil.example/x')).toBe('/evil.example/x')
+		expect(await back('not a url')).toBe('/')
 	})
 })
 

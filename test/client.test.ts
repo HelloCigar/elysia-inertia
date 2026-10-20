@@ -11,6 +11,8 @@ const app = new Elysia()
 	.post('/users', { body: t.Object({ name: t.String(), email: t.String() }) }, () => 'created')
 	.put('/users/:id', { body: t.Object({ name: t.String() }) }, () => 'updated')
 	.get('/files/*', () => 'file')
+	.get('/teams/:team-id', () => 'team')
+	.get('/posts/:slug?', () => 'posts')
 	.group('/admin', (admin) => admin.get('/stats', () => 'stats'))
 
 const { url, action } = createRoutes<typeof app>()
@@ -21,6 +23,15 @@ describe('url()', () => {
 		expect(url('/users/:id', { params: { id: '42' } })).toBe('/users/42')
 		expect(url('/files/*', { params: { '*': 'docs/a b.pdf' } })).toBe('/files/docs/a%20b.pdf')
 		expect(url('/admin/stats')).toBe('/admin/stats')
+	})
+
+	it('reads param names up to the next slash', () => {
+		expect(url('/teams/:team-id', { params: { 'team-id': 'core' } })).toBe('/teams/core')
+	})
+
+	it('drops an omitted optional param with its slash', () => {
+		expect(url('/posts/:slug?')).toBe('/posts')
+		expect(url('/posts/:slug?', { params: { slug: 'hi' } })).toBe('/posts/hi')
 	})
 
 	it('encodes params and serialises the query', () => {
