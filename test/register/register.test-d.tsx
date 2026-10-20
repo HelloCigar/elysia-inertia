@@ -1,9 +1,9 @@
-// One-line registration: Register + InertiaShared (separate program, since
+// One-line registration: Register (separate program, since
 // augmentations are global)
 import type { SharedPageProps } from '@inertiajs/core'
 import { usePage } from '@inertiajs/react'
 import { Elysia, t } from 'elysia'
-import { inertia, type InertiaConfigOf, type PageProps } from '../../src'
+import { inertia, share, type InertiaConfigOf, type PageProps } from '../../src'
 import { createRoutes, type FormOf } from '../../src/client'
 
 interface User {
@@ -15,9 +15,6 @@ declare module '../../src' {
 	interface Register {
 		app: typeof app
 	}
-	interface InertiaShared {
-		auth: { user: User | null }
-	}
 }
 
 declare module '@inertiajs/core' {
@@ -27,23 +24,14 @@ declare module '@inertiajs/core' {
 const app = new Elysia()
 	.use(inertia({ share: () => ({ appName: 'demo' }) }))
 	.derive(() => ({ user: { id: 1, name: 'Ada' } as User | null }))
-	.onBeforeHandle(({ inertia, user }) => {
-		inertia.share('auth', { user })
-	})
+	.derive(share(({ user }) => ({ auth: { user } })))
 	.get('/users', { inertia: 'users/index' }, ({ render }) => render({ users: [{ id: 1, name: 'Ada' }] }))
 	.post('/users', { body: t.Object({ name: t.String() }) }, () => 'ok')
-	.get('/bad', ({ inertia }) => {
-		// @ts-expect-error not a registered shared key
-		inertia.share('authh', 1)
-		// @ts-expect-error wrong shape for a registered key
-		inertia.share('auth', { user: 'Ada' })
-		return 'x'
-	})
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
 const expect = <T extends true>() => {}
 
-// Shared props: from share() config and from the InertiaShared registration
+// Shared props: from the share option and from share()
 expect<Equal<SharedPageProps, { appName: string; auth: { user: { id: number; name: string } | null } }>>()
 
 // No `typeof app` needed anywhere on the client

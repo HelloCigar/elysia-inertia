@@ -16,7 +16,7 @@ echo
 bun demo/step-5.ts
 echo "## Type checks"
 echo
-echo "\`demo/type-errors/step-5.ts\` registers the flash shape once (\`interface InertiaFlash { toast: { kind: 'success' | 'error'; text: string } }\`) and then makes three mistakes. \`tsc\` reports:"
+echo "\`demo/type-errors/step-5.ts\` types the flash data once, on its store (\`cookieFlashStore<{ toast: Toast }>()\`), and then makes three mistakes. \`tsc\` reports:"
 echo
 echo '```text'
 echo "$TE"

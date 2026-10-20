@@ -26,7 +26,7 @@ Content-Type: application/json
 
 ```http
 303
-location: http://localhost/users/create
+location: /users/create
 set-cookie: inertia_flash=eyJlcnJvcnMiOnsibmFtZSI6Ik5hbWUgaXMgdG9v…; Path=/; HttpOnly; SameSite=Lax
 ```
 
@@ -97,7 +97,7 @@ Content-Type: application/json
 
 ```http
 303
-location: http://localhost/users/create
+location: /users/create
 set-cookie: inertia_flash=eyJlcnJvcnMiOnsiZW1haWwiOiJtdXN0IG1hdGNo…; Path=/; HttpOnly; SameSite=Lax
 ```
 
@@ -159,7 +159,7 @@ Content-Type: application/json
 
 ```http
 302
-location: http://localhost/users/create
+location: /users/create
 set-cookie: inertia_flash=eyJmbGFzaCI6eyJ0b2FzdCI6IlVzZXIgY3JlYXRl…; Path=/; HttpOnly; SameSite=Lax
 ```
 
@@ -202,7 +202,7 @@ Referer: http://localhost/users/create
 
 ```http
 303
-location: http://localhost/users/create
+location: /users/create
 set-cookie: inertia_flash=eyJlcnJvcnMiOnsiZW1haWwiOiJBbHJlYWR5IHRh…; Path=/; HttpOnly; SameSite=Lax
 ```
 
@@ -235,19 +235,19 @@ set-cookie: inertia_flash=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax
 
 ## Type checks
 
-`demo/type-errors/step-5.ts` registers the flash shape once (`interface InertiaFlash { toast: { kind: 'success' | 'error'; text: string } }`) and then makes three mistakes. `tsc` reports:
+`demo/type-errors/step-5.ts` types the flash data once, on its store (`cookieFlashStore<{ toast: Toast }>()`), and then makes three mistakes. `tsc` reports:
 
 ```text
-demo/type-errors/step-5.ts(15,56): error TS2322: Type '"info"' is not assignable to type '"error" | "success"'.
-demo/type-errors/step-5.ts(17,45): error TS2345: Argument of type '"banner"' is not assignable to parameter of type '"toast"'.
-demo/type-errors/step-5.ts(26,7): error TS2339: Property 'banner' does not exist on type '{ toast?: { kind: "error" | "success"; text: string; } | undefined; }'.
+demo/type-errors/step-5.ts(11,56): error TS2322: Type '"info"' is not assignable to type '"error" | "success"'.
+demo/type-errors/step-5.ts(13,45): error TS2345: Argument of type '"banner"' is not assignable to parameter of type '"toast"'.
+demo/type-errors/step-5.ts(22,7): error TS2339: Property 'banner' does not exist on type '{ toast?: { kind: "error" | "success"; text: string; } | undefined; }'.
 ```
 
 ## Test run
 
 ```text
- 74 pass
+ 93 pass
  0 fail
- 197 expect() calls
-Ran 74 tests across 6 files. [240.00ms]
+ 241 expect() calls
+Ran 93 tests across 8 files. [394.00ms]
 ```

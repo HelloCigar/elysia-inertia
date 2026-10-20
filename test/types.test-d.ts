@@ -12,10 +12,7 @@ const app = new Elysia()
 	.get('/posts/:id', ({ inertia, params }) =>
 		inertia.render('posts/show', { id: params.id })
 	)
-	.get('/', { inertia: 'home' }, ({ render, inertia }) => {
-		inertia.share('extra', 1)
-		return render()
-	})
+	.get('/', { inertia: 'home' }, ({ render }) => render())
 	.get('/api', () => ({ plain: true }))
 
 type Pages = InferPages<typeof app>

@@ -93,18 +93,6 @@ export type ComponentName = keyof InertiaPages extends never
 	: keyof InertiaPages & string
 
 /**
- * Register props that requests add with `inertia.share()`, e.g. from an auth
- * plugin. Types `share()` and joins the client's shared props
- *
- * ```ts
- * declare module 'elysia-inertia' {
- *   interface InertiaShared { auth: { user: User | null } }
- * }
- * ```
- */
-export interface InertiaShared {}
-
-/**
  * Register your app once to drop the `typeof app` generic from the type
  * helpers and `createRoutes()`
  *

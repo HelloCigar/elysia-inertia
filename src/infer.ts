@@ -1,7 +1,7 @@
 import type { FlashValues } from './flash'
 import type { InertiaContext } from './plugin'
 import type { InertiaProp } from './props'
-import type { InertiaResponse, InertiaShared, RegisteredApp } from './types'
+import type { InertiaResponse, RegisteredApp } from './types'
 
 type UnionToIntersection<U> = (
 	U extends unknown ? (arg: U) => void : never
@@ -113,8 +113,17 @@ type DeriveOf<App> =
 // plugin was composed, so look in all of them
 type SharedOf<App> = UnionToIntersection<
 	DeriveOf<App> extends infer D
-		? D extends { inertia: InertiaContext<infer Shared> }
+		? D extends { inertia: InertiaContext<infer Shared, any> }
 			? Shared
+			: never
+		: never
+>
+
+// The configured store's flash shape; `{}` from a bare inertia() drops out
+type FlashOf<App> = UnionToIntersection<
+	DeriveOf<App> extends infer D
+		? D extends { inertia: InertiaContext<any, infer Flash> }
+			? Flash
 			: never
 		: never
 >
@@ -129,7 +138,7 @@ type SharedOf<App> = UnionToIntersection<
  * ```
  */
 export interface InertiaConfigOf<App = RegisteredApp> {
-	sharedPageProps: Serialized<SharedOf<App> & InertiaShared>
-	flashDataType: Serialized<FlashValues>
+	sharedPageProps: Serialized<SharedOf<App>>
+	flashDataType: Serialized<FlashValues<FlashOf<App>>>
 	errorValueType: string
 }

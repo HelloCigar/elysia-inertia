@@ -34,7 +34,7 @@ export type {
 	FlashContext,
 	FlashData,
 	FlashStore,
-	InertiaFlash
+	FlashValues
 } from './flash'
 export type { SSROptions } from './html'
 export type { RescueHandler } from './page'
@@ -52,7 +52,6 @@ export type {
 	FormErrors,
 	InertiaPages,
 	InertiaResponse,
-	InertiaShared,
 	PageObject,
 	Props,
 	Register,
