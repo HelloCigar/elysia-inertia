@@ -1,13 +1,14 @@
-export { formBody } from './form'
-export { inertia } from './plugin'
-export { share } from './share'
+export { formBody } from './form.js'
+export { inertia } from './plugin.js'
+export { share } from './share.js'
 export type {
 	InertiaContext,
 	InertiaOptions,
 	InertiaPlugin,
+	RenderArgs,
 	RenderFor,
 	RenderOptions
-} from './plugin'
+} from './plugin.js'
 export {
 	always,
 	deepMerge,
@@ -18,7 +19,7 @@ export {
 	optional,
 	prepend,
 	scroll
-} from './props'
+} from './props.js'
 export type {
 	InertiaProp,
 	MergeStrategy,
@@ -27,8 +28,8 @@ export type {
 	Resolvable,
 	ScrollCursor,
 	ScrollOptions
-} from './props'
-export { cookieFlashStore } from './flash'
+} from './props.js'
+export { cookieFlashStore } from './flash.js'
 export type {
 	CookieFlashStoreOptions,
 	FlashContext,
@@ -36,17 +37,11 @@ export type {
 	FlashStore,
 	FlashValues,
 	UnconfiguredFlash
-} from './flash'
-export type { SSROptions } from './html'
-export type { RescueHandler } from './page'
-export { viteVersion } from './vite'
-export type {
-	InertiaConfigOf,
-	InferPages,
-	PageProps,
-	PagePropsOf,
-	Serialized
-} from './infer'
+} from './flash.js'
+export type { SSROptions } from './html.js'
+export type { RescueHandler } from './page.js'
+export { viteTags, viteVersion, type ViteOptions } from './vite.js'
+export type { InertiaConfigOf, Serialized } from './infer.js'
 export type {
 	ComponentName,
 	FieldPath,
@@ -54,8 +49,11 @@ export type {
 	InertiaPages,
 	InertiaResponse,
 	PageObject,
+	PageProps,
+	PropInput,
 	Props,
+	PropsOf,
 	Register,
 	RootViewContext,
 	SSRResult
-} from './types'
+} from './types.js'

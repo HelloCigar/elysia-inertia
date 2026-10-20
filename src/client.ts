@@ -4,13 +4,12 @@
  *
  * ```ts
  * import { createRoutes } from 'elysia-inertia/client'
- * import type { app } from '../server'
+ * import type { app } from '../server.js'
  *
  * export const { url, action } = createRoutes<typeof app>()
  * ```
  */
-import type { InertiaConfigOf, InferPages, PageProps } from './infer'
-import type { FormErrors, RegisteredApp } from './types'
+import type { FormErrors, InertiaPages, RegisteredApp } from './types.js'
 import type {
 	BodyOf,
 	HttpMethod,
@@ -18,10 +17,9 @@ import type {
 	PathsOf,
 	QueryOf,
 	QueryValue
-} from './routes'
+} from './routes.js'
 
-export type { PageProps } from './infer'
-export type { Register } from './types'
+export type { InertiaPages, PageProps, PropsOf, Register } from './types.js'
 export type {
 	BodyOf,
 	FormOf,
@@ -30,7 +28,7 @@ export type {
 	PathsOf,
 	QueryOf,
 	RoutesOf
-} from './routes'
+} from './routes.js'
 
 type AnyApp = { '~Routes': unknown }
 
@@ -128,63 +126,8 @@ export const createRoutes = <App extends AnyApp = RegisteredApp>(): Routes<App> 
 		})
 	}) as unknown as Routes<App>
 
-/** The page names the registered app renders (see `Register`) */
-export type PageName = keyof InferPages<RegisteredApp> & string
-
-// Later props win, as when `render()` spreads them
-type Override<A, B> = { [K in keyof (Omit<A, keyof B> & B)]: (Omit<A, keyof B> & B)[K] } & {}
+/** The registered page names (see `InertiaPages`) */
+export type PageName = keyof InertiaPages & string
 
 /** `page.props.errors` as Inertia types it: flat, or namespaced by error bag */
 export type PageErrors = Record<string, string> & Record<string, Record<string, string>>
-
-/**
- * What a page component receives: errors, the shared props, then its own,
- * each overriding the last
- */
-export type PageComponentProps<Name extends PageName> = Override<
-	Override<{ errors: PageErrors }, InertiaConfigOf['sharedPageProps']>,
-	PageProps<Name>
->
-
-/** A component that accepts every prop its routes render */
-export type PageComponent<Name extends PageName> = (
-	props: PageComponentProps<Name>
-) => unknown
-
-declare const pageName: unique symbol
-
-/** Marks a component with the page `definePage` typed it for */
-export interface PageBrand<Name extends string> {
-	readonly [pageName]?: Name
-}
-
-/**
- * Type a page component from the server: the name is checked against the
- * registered app and the props are inferred from what its routes render
- *
- * ```tsx
- * export default definePage('users/index', ({ users }) => <List users={users} />)
- * ```
- */
-export const definePage = <
-	const Name extends PageName,
-	Component extends PageComponent<Name>
->(
-	_name: Name,
-	component: Component
-): Component & PageBrand<Name> => component
-
-/** A function or class component taking `P` */
-type AcceptsProps<P> = ((props: P) => unknown) | (new (props: P) => unknown)
-
-/**
- * Used by the generated `inertia-pages.check.ts`: a page file's default
- * export must accept its routes' props and, from `definePage`, name the
- * page its file is. Pages no typed route renders, and apps without
- * `Register`, are only name-checked
- */
-export type CheckPage<
-	Name extends string,
-	Component extends AcceptsProps<Name extends PageName ? PageComponentProps<Name> : never> &
-		PageBrand<Name>
-> = Component

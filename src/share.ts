@@ -1,5 +1,5 @@
-import { addSharedResolver, type InertiaContext } from './plugin'
-import type { MaybePromise, Props } from './types'
+import { addSharedResolver, type InertiaContext } from './plugin.js'
+import type { MaybePromise, Props } from './types.js'
 
 type SharedIn<Ctx> = Ctx extends { inertia: InertiaContext<infer Shared, any> }
 	? Shared

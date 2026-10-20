@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto'
 
 import type { HTTPHeaders } from 'elysia'
 
-import type { MaybePromise } from './types'
+import type { MaybePromise } from './types.js'
 
 declare const unconfigured: unique symbol
 

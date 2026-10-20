@@ -1,7 +1,7 @@
 // Client side: wire the server's shared props into Inertia's own types
 import type { Page, SharedPageProps } from '@inertiajs/core'
 import { Elysia } from 'elysia'
-import { inertia, type InertiaConfigOf, type PagePropsOf } from '../src'
+import { inertia, type InertiaConfigOf } from '../src'
 
 const app = new Elysia()
 	.use(inertia({ share: () => ({ auth: { user: { name: 'a' } } }) }))
@@ -16,8 +16,8 @@ const expect = <T extends true>() => {}
 
 expect<Equal<SharedPageProps, { auth: { user: { name: string } } }>>()
 
-// What usePage<PagePropsOf<...>>() returns
-declare const page: Page<PagePropsOf<typeof app, 'users/index'> & SharedPageProps>
+// What usePage<{ users: string[] }>() returns
+declare const page: Page<{ users: string[] } & SharedPageProps>
 page.props.users satisfies string[]
 page.props.auth.user.name satisfies string
 page.props.errors satisfies Record<string, string>

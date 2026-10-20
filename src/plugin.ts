@@ -15,28 +15,38 @@ import {
 	type FlashStore,
 	type FlashValues,
 	type UnconfiguredFlash
-} from './flash'
-import { defaultRootView, pageBody, renderSSR, type SSROptions } from './html'
-import { buildPage, type RescueHandler } from './page'
-import { always, isInertiaProp } from './props'
-import { backUrl, pageUrl, parseInertiaRequest } from './request'
-import { isValidationError, validationErrors } from './validation'
+} from './flash.js'
+import { defaultRootView, pageBody, renderSSR, type SSROptions } from './html.js'
+import { buildPage, type RescueHandler } from './page.js'
+import { always, isInertiaProp } from './props.js'
+import { backUrl, pageUrl, parseInertiaRequest } from './request.js'
+import { viteAssets, type ViteOptions } from './vite.js'
+import { isValidationError, validationErrors } from './validation.js'
 import type {
 	ComponentName,
 	FormErrors,
 	InertiaRequest,
 	InertiaResponse,
 	MaybePromise,
+	PagePropsFor,
+	PageRenderProps,
 	Props,
 	RootViewContext
-} from './types'
+} from './types.js'
 
 export interface InertiaOptions<Shared extends Props = {}, Flash extends object = {}> {
 	/**
 	 * Current asset version, e.g. a hash of the Vite manifest. A GET visit
-	 * holding another version is answered with a 409 full reload
+	 * holding another version is answered with a 409 full reload.
+	 * Defaults to the manifest's hash in production when `vite` is set
 	 */
 	version?: string | (() => MaybePromise<string>)
+	/**
+	 * Load the Vite entry on the initial load: the dev server's scripts in
+	 * dev, the built JS and CSS from the manifest in production. The tags
+	 * are added to `head`, so a custom `rootView` gets them too
+	 */
+	vite?: ViteOptions
 	/** Props merged into every page */
 	share?: (context: Context) => MaybePromise<Shared>
 	/** Build the HTML document for the initial load */
@@ -71,6 +81,14 @@ export interface RenderOptions {
 	status?: number
 }
 
+/** `render()`'s arguments: the props are required when the page requires some */
+export type RenderArgs<Component, Shared> =
+	{} extends PageRenderProps<Component, Shared>
+		? [props?: PageRenderProps<Component, Shared>, options?: RenderOptions]
+		: [props: PageRenderProps<Component, Shared>, options?: RenderOptions]
+
+type RenderResult<Component extends string> = Promise<InertiaResponse<Component, PagePropsFor<Component>>>
+
 /** Lets `share()` queue props that resolve only when a page renders */
 export const addSharedResolver = Symbol('inertia.addSharedResolver')
 
@@ -78,8 +96,10 @@ const MUTATING_METHODS = new Set(['PUT', 'PATCH', 'DELETE'])
 
 const defaultFlashStore = cookieFlashStore()
 
-const resolveVersion = async (version: InertiaOptions<any, any>['version']) =>
-	typeof version === 'function' ? await version() : (version ?? '')
+const resolveVersion = async ({ version, vite }: InertiaOptions<any, any>) =>
+	typeof version === 'function'
+		? await version()
+		: (version ?? (vite ? viteAssets(vite).version() : ''))
 
 /**
  * Per-request Inertia API, available as `inertia` on the Elysia context
@@ -147,15 +167,14 @@ export class InertiaContext<Shared extends Props = {}, Flash extends object = {}
 		return this
 	}
 
-	/** Render a page: JSON for an Inertia visit, the HTML document otherwise */
-	async render<
-		const Component extends ComponentName,
-		P extends Props = {}
-	>(
+	/**
+	 * Render a page: JSON for an Inertia visit, the HTML document otherwise.
+	 * The props are checked against the props the page declares
+	 */
+	async render<const Component extends ComponentName>(
 		component: Component,
-		props?: P,
-		{ status = 200 }: RenderOptions = {}
-	): Promise<InertiaResponse<Component, P>> {
+		...[props, { status = 200 } = {}]: RenderArgs<Component, Shared>
+	): RenderResult<Component> {
 		const { context, options, request } = this
 
 		// Consume what the previous request flashed, plus anything set on this one
@@ -171,7 +190,7 @@ export class InertiaContext<Shared extends Props = {}, Flash extends object = {}
 			errors: bag && Object.keys(errors).length ? { [bag]: errors } : errors,
 			...(await options.share?.(context)),
 			...Object.assign({}, ...(await Promise.all(this.#sharedResolvers.map((resolve) => resolve())))),
-			...props
+			...(props as Props | undefined)
 		}
 		// Errors are always sent, even when a partial reload excludes them
 		if (!isInertiaProp(merged.errors)) merged.errors = always(merged.errors)
@@ -180,7 +199,7 @@ export class InertiaContext<Shared extends Props = {}, Flash extends object = {}
 			component,
 			props: merged,
 			url: pageUrl(context.request),
-			version: await resolveVersion(options.version),
+			version: await resolveVersion(options),
 			request,
 			clearHistory: this.#clearHistory,
 			encryptHistory: this.#encryptHistory,
@@ -196,12 +215,12 @@ export class InertiaContext<Shared extends Props = {}, Flash extends object = {}
 					'x-inertia': 'true',
 					vary: 'X-Inertia'
 				}
-			}) as InertiaResponse<Component, P>
+			}) as Awaited<RenderResult<Component>>
 
 		const ssr = options.ssr ? await renderSSR(page, options.ssr) : undefined
 		const html = await (options.rootView ?? defaultRootView)({
 			page,
-			head: ssr?.head?.join('') ?? '',
+			head: (options.vite ? viteAssets(options.vite).tags() : '') + (ssr?.head?.join('') ?? ''),
 			body: ssr?.body ?? pageBody(page, options.id),
 			request: context.request
 		})
@@ -212,7 +231,7 @@ export class InertiaContext<Shared extends Props = {}, Flash extends object = {}
 				'content-type': 'text/html; charset=utf-8',
 				vary: 'X-Inertia'
 			}
-		}) as InertiaResponse<Component, P>
+		}) as Awaited<RenderResult<Component>>
 	}
 
 	/**
@@ -241,16 +260,16 @@ export class InertiaContext<Shared extends Props = {}, Flash extends object = {}
 	}
 }
 
-export type RenderFor<Component extends string> = <P extends Props = {}>(
-	props?: P,
-	options?: RenderOptions
-) => Promise<InertiaResponse<Component, P>>
+/** The macro's `render`, bound to its route's page */
+export type RenderFor<Component extends string, Shared = {}> = (
+	...args: RenderArgs<Component, Shared>
+) => RenderResult<Component>
 
-type RenderOutput<Component> = { render: RenderFor<Component & string> }
+type RenderOutput<Component, Shared> = { render: RenderFor<Component & string, Shared> }
 
-interface RenderLambda extends MacroTypeLambda {
+interface RenderLambda<Shared> extends MacroTypeLambda {
 	option: ComponentName
-	output: RenderOutput<this['input']>
+	output: RenderOutput<this['input'], Shared>
 }
 
 // What `errors()` chains into. Not `flash()`: the macro can't see the
@@ -333,11 +352,11 @@ const createCore = <Shared extends Props = {}, Flash extends object = {}>() =>
 		.macro({
 			/** Bind the route to a page component and add a typed `render` */
 			inertia: (component: ComponentName) => ({
-				$type: macroType<RenderLambda>(),
+				$type: macroType<RenderLambda<Shared>>(),
 				derive: ({ inertia }: { inertia: InertiaContext }) =>
 					({
 						render: (props?: Props, renderOptions?: RenderOptions) =>
-							inertia.render(component, props, renderOptions)
+							(inertia.render as (...args: unknown[]) => unknown)(component, props, renderOptions)
 					}) as {},
 				// Plain props skip the page types, so they are sent as plain JSON;
 				// say so once, since this used to render
@@ -373,7 +392,7 @@ const createCore = <Shared extends Props = {}, Flash extends object = {}>() =>
 			)
 				return
 
-			const version = await resolveVersion(optionsFor(request, {}).version)
+			const version = await resolveVersion(optionsFor(request, {}))
 			if ((request.headers.get('x-inertia-version') ?? '') === version)
 				return
 
@@ -385,7 +404,7 @@ const createCore = <Shared extends Props = {}, Flash extends object = {}>() =>
 		})
 		// A failed request schema on a form submission: flash the field errors
 		// and go back, the Inertia validation flow (protocol section 17)
-		.onError('plugin', (context) => {
+		.onError('plugin', (context: { error: unknown; request: Request }) => {
 			const { error, request } = context
 			const { validation, flash } = optionsFor(request, {})
 

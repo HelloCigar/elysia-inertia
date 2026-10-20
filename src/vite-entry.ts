@@ -1,9 +1,8 @@
-export { viteVersion } from './vite'
+export { viteVersion } from './vite.js'
 export {
 	findPages,
 	generatePages,
 	inertiaPages,
-	pagesCheck,
 	pagesDeclaration,
 	type PagesOptions
-} from './pages'
+} from './pages.js'

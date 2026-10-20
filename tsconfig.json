@@ -13,7 +13,21 @@
     "lib": [
       "ESNext",
       "DOM"
-    ]
+    ],
+    "paths": {
+      "elysia-inertia": [
+        "./src/index.ts"
+      ],
+      "elysia-inertia/client": [
+        "./src/client.ts"
+      ],
+      "elysia-inertia/internal": [
+        "./src/internal.ts"
+      ],
+      "elysia-inertia/vite": [
+        "./src/vite-entry.ts"
+      ]
+    }
   },
   "include": [
     "src",
@@ -21,6 +35,7 @@
   ],
   "exclude": [
     "test/register",
-    "test/pages-types"
+    "test/pages-types",
+    "test/package"
   ]
 }

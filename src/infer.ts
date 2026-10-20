@@ -1,7 +1,7 @@
-import type { FlashValues, UnconfiguredFlash } from './flash'
-import type { InertiaContext } from './plugin'
-import type { InertiaProp } from './props'
-import type { InertiaResponse, RegisteredApp } from './types'
+import type { FlashValues, UnconfiguredFlash } from './flash.js'
+import type { InertiaContext } from './plugin.js'
+import type { InertiaProp } from './props.js'
+import type { RegisteredApp } from './types.js'
 
 type UnionToIntersection<U> = (
 	U extends unknown ? (arg: U) => void : never
@@ -56,53 +56,6 @@ export type Serialized<T> = T extends InertiaProp<infer V, any>
 					: T extends object
 						? SerializedObject<T>
 						: T
-
-type PageOf<T> =
-	T extends InertiaResponse<infer Component, infer P>
-		? { [K in Component]: P }
-		: never
-
-type WalkRoutes<Node> = Node extends { response: infer Responses }
-	? PageOf<Responses[keyof Responses]>
-	: Node extends object
-		? { [K in keyof Node]: WalkRoutes<Node[K]> }[keyof Node]
-		: never
-
-/**
- * Every page an app renders, as `{ [component]: props }`, read from
- * Elysia's route table
- *
- * ```ts
- * export type Pages = InferPages<typeof app>
- * ```
- */
-export type InferPages<App extends { '~Routes': unknown }> =
-	UnionToIntersection<WalkRoutes<App['~Routes']>> extends infer Pages
-		? { [K in keyof Pages]: Pages[K] }
-		: never
-
-/**
- * One page's props for the registered app (see `Register`)
- *
- * ```ts
- * const { props } = usePage<PageProps<'users/index'>>()
- * ```
- */
-export type PageProps<Component extends keyof InferPages<RegisteredApp>> =
-	Serialized<InferPages<RegisteredApp>[Component]>
-
-/**
- * One page's props as its component receives them, without shared props
- * (`usePage` adds those from `InertiaConfig`)
- *
- * ```ts
- * type Props = PagePropsOf<typeof app, 'users/index'>
- * ```
- */
-export type PagePropsOf<
-	App extends { '~Routes': unknown },
-	Component extends keyof InferPages<App>
-> = Serialized<InferPages<App>[Component]>
 
 type DeriveOf<App> =
 	| (App extends { '~Singleton': { derive: infer D } } ? D : never)

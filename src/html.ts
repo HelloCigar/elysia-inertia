@@ -1,4 +1,4 @@
-import type { PageObject, RootViewContext, SSRResult } from './types'
+import type { PageObject, RootViewContext, SSRResult } from './types.js'
 
 /**
  * Serialize the page for a `<script>` body. Every `/` becomes `\/` so prop
