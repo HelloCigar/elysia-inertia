@@ -183,7 +183,38 @@ hoc with `inertia.share()` in handlers need declaring, in
 Without `Register`, pass the app explicitly: `PagePropsOf<typeof app, 'users/index'>`,
 `InertiaConfigOf<typeof app>`, `createRoutes<typeof app>()`. `InferPages<typeof app>`
 gives the whole `{ component: props }` map, read from Elysia's route table.
-Optionally restrict component names:
+### Page names
+
+`render('users/index')` sends only the name; the client's `resolve` maps it
+to a file:
+
+```tsx
+createInertiaApp({
+	resolve: (name) =>
+		import.meta.glob<{ default: ComponentType }>('./pages/**/*.tsx', { eager: true })[
+			`./pages/${name}.tsx`
+		],
+	setup: ({ el, App, props }) => createRoot(el).render(<App {...props} />)
+})
+```
+
+The Vite plugin generates the page names from that folder, so a route that
+names a page with no file fails the typecheck:
+
+```ts
+// vite.config.ts
+import { inertiaPages } from 'elysia-inertia/vite'
+
+export default defineConfig({
+	plugins: [inertiaPages({ dir: 'src/pages', dts: 'inertia-pages.d.ts' })]
+})
+```
+
+It writes `inertia-pages.d.ts` on build and whenever a page is added or
+removed in dev (relative paths follow Vite's `root`; keep the pages folder
+inside it so dev changes are seen); include it in the server's tsconfig and commit it. Without
+Vite, run `generatePages({ dir, dts })` from `elysia-inertia/vite` in a
+script. Or write the list by hand:
 
 ```ts
 declare module 'elysia-inertia' {

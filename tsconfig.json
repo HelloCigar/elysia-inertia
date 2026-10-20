@@ -20,6 +20,7 @@
     "test"
   ],
   "exclude": [
-    "test/register"
+    "test/register",
+    "test/pages-types"
   ]
 }
