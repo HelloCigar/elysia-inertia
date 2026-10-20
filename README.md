@@ -174,12 +174,16 @@ declare module '@inertiajs/core' {
 }
 ```
 
-```ts
-// a page component
-import type { PageProps } from 'elysia-inertia'
+```tsx
+// pages/users/index.tsx
+import { definePage } from 'elysia-inertia/client'
 
-const { props } = usePage<PageProps<'users/index'>>() // props.users typed, props.auth from shared
+// The name is checked against the app; users and shared props are inferred
+export default definePage('users/index', ({ users, auth }) => <List users={users} />)
 ```
+
+A child component that reads the page itself still names it:
+`usePage<PageProps<'users/index'>>()`.
 
 Shared props come from `inertia({ share })` and `share()`. Only props set ad
 hoc with `inertia.share()` in handlers need declaring, in
@@ -219,7 +223,15 @@ It writes `inertia-pages.d.ts` on build and whenever a page is added or
 removed in dev (relative paths follow Vite's `root`; keep the pages folder
 inside it so dev changes are seen); include it in the server's tsconfig and commit it. Without
 Vite, run `generatePages({ dir, dts })` from `elysia-inertia/vite` in a
-script. Or write the list by hand:
+script.
+
+With `Register`, it also writes `inertia-pages.check.ts` (option `check`;
+`false` to skip). For each `.tsx` page it checks that the file's default
+export accepts the props its routes render and, if it uses `definePage`,
+names the page the file is. Include it in the client's tsconfig and commit
+it. `.vue` and `.svelte` pages are left to `vue-tsc` / `svelte-check`.
+
+Or write the list by hand:
 
 ```ts
 declare module 'elysia-inertia' {

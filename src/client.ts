@@ -9,6 +9,7 @@
  * export const { url, action } = createRoutes<typeof app>()
  * ```
  */
+import type { InertiaConfigOf, InferPages, PageProps } from './infer'
 import type { RegisteredApp } from './types'
 import type {
 	BodyOf,
@@ -19,6 +20,7 @@ import type {
 	QueryValue
 } from './routes'
 
+export type { PageProps } from './infer'
 export type { Register } from './types'
 export type {
 	BodyOf,
@@ -111,3 +113,53 @@ export const createRoutes = <App extends AnyApp = RegisteredApp>(): Routes<App> 
 			fields: (data: unknown) => data
 		})
 	}) as unknown as Routes<App>
+
+/** The page names the registered app renders (see `Register`) */
+export type PageName = keyof InferPages<RegisteredApp> & string
+
+/**
+ * What a page component receives: its own props plus the shared ones.
+ * Inertia types `errors` flat, so this does too
+ */
+export type PageComponentProps<Name extends PageName> = PageProps<Name> &
+	InertiaConfigOf['sharedPageProps'] & { errors: Record<string, string> }
+
+/** A component that accepts every prop its routes render */
+export type PageComponent<Name extends PageName> = (
+	props: PageComponentProps<Name>
+) => unknown
+
+declare const pageName: unique symbol
+
+/** Marks a component with the page `definePage` typed it for */
+export interface PageBrand<Name extends string> {
+	readonly [pageName]?: Name
+}
+
+/**
+ * Type a page component from the server: the name is checked against the
+ * registered app and the props are inferred from what its routes render
+ *
+ * ```tsx
+ * export default definePage('users/index', ({ users }) => <List users={users} />)
+ * ```
+ */
+export const definePage = <
+	const Name extends PageName,
+	Component extends PageComponent<Name>
+>(
+	_name: Name,
+	component: Component
+): Component & PageBrand<Name> => component
+
+/**
+ * Used by the generated `inertia-pages.check.ts`: a page file's default
+ * export must accept its routes' props and, from `definePage`, name the
+ * page its file is. Pages no typed route renders, and apps without
+ * `Register`, are only name-checked
+ */
+export type CheckPage<
+	Name extends string,
+	Component extends (Name extends PageName ? PageComponent<Name> : (props: never) => unknown) &
+		PageBrand<Name>
+> = Component
