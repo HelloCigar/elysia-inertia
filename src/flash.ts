@@ -47,7 +47,10 @@ export interface FlashStore {
 export interface CookieFlashStoreOptions {
 	/** Cookie name (default `inertia_flash`) */
 	name?: string
-	/** Mark the cookie `Secure` (default: when the request is https) */
+	/**
+	 * Mark the cookie `Secure` (default: when the request is https). Behind a
+	 * proxy that terminates TLS the app sees http, so set `true` there
+	 */
 	secure?: boolean
 	domain?: string
 	path?: string

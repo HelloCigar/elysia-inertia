@@ -136,8 +136,9 @@ that field's message.
 Errors and flash wait in a cookie (`inertia_flash`) until the next rendered
 page, so they survive the redirect and a 409 version reload. The cookie is
 unsigned by default; pass `flash: cookieFlashStore({ secret })` to HMAC-sign it
-when an app trusts or renders flash data as HTML. Swap the store
-with `inertia({ flash: { read, write } })`; tune or disable the automatic
+when an app trusts or renders flash data as HTML. It is `Secure` on https
+requests; behind a proxy that terminates TLS, pass `cookieFlashStore({ secure: true })`.
+Swap the store with `inertia({ flash: { read, write } })`; tune or disable the automatic
 handling with `inertia({ validation: { errors, redirect } | false })`. Type the
 flash data once:
 

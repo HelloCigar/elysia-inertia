@@ -11,7 +11,7 @@ import {
 import { defaultRootView, pageBody, renderSSR, type SSROptions } from './html'
 import { buildPage, type RescueHandler } from './page'
 import { always, isInertiaProp } from './props'
-import { pageUrl, parseInertiaRequest } from './request'
+import { backUrl, pageUrl, parseInertiaRequest } from './request'
 import { isValidationError, validationErrors } from './validation'
 import type {
 	ComponentName,
@@ -71,8 +71,6 @@ export const addSharedResolver = Symbol('inertia.addSharedResolver')
 const MUTATING_METHODS = new Set(['PUT', 'PATCH', 'DELETE'])
 
 const defaultFlashStore = cookieFlashStore()
-
-const backUrl = (request: Request) => request.headers.get('referer') ?? '/'
 
 const resolveVersion = async (version: InertiaOptions['version']) =>
 	typeof version === 'function' ? await version() : (version ?? '')
@@ -236,13 +234,14 @@ export class InertiaContext<Shared extends Props = {}> {
 		return new Response(null, { status: 302, headers: { location: url } })
 	}
 
-	/** Redirect to the previous page, or `fallback` without a Referer */
+	/**
+	 * Redirect to the previous page (the Referer's path on this site), or
+	 * `fallback` without a Referer
+	 */
 	back(fallback = '/'): Response {
 		return new Response(null, {
 			status: 302,
-			headers: {
-				location: this.context.request.headers.get('referer') ?? fallback
-			}
+			headers: { location: backUrl(this.context.request, fallback) }
 		})
 	}
 }
