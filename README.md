@@ -130,12 +130,15 @@ that field's message.
 ```ts
 .post('/users', { body: t.Object({ name: t.String({ minLength: 2, error: 'Too short.' }) }) },
 	({ inertia, body }) => inertia.flash('toast', 'Saved').back())
-.put('/users/:id/email', { body: t.Object({ email: t.String() }) },
-	({ inertia, body }) => inertia.errors<typeof body>({ email: 'Taken.' }).back())
+.put('/users/:id/email', formBody(t.Object({ email: t.String() })),
+	({ body, errors }) => errors({ email: `${body.email} is taken.` }).back())
 ```
 
-`errors()` accepts any keys; pass the body type to check them against the
-form's dot paths (`FieldPath<Body>`), the same keys `form.errors` reads.
+`formBody(schema)` sets the route's `body` and adds an `errors()` whose keys
+are checked against the schema's dot paths (`FieldPath<Body>`), the same keys
+`form.errors` reads on the client. Spread it to add other options:
+`{ ...formBody(schema), detail }`. `inertia.errors()` accepts any keys, or
+pass the body type to check them: `inertia.errors<typeof body>(...)`.
 
 Errors and flash wait in a cookie (`inertia_flash`) until the next rendered
 page, so they survive the redirect and a 409 version reload. The cookie is
