@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test'
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { findPages, generatePages, inertiaPages, pagesDeclaration } from '../src/vite-entry'
+import { findPages, generatePages, inertiaPages, pagesCheck, pagesDeclaration } from '../src/vite-entry'
 
 const fixture = () => {
 	const root = mkdtempSync(join(tmpdir(), 'inertia-pages-'))
@@ -11,7 +11,7 @@ const fixture = () => {
 	mkdirSync(join(dir, 'users'), { recursive: true })
 	for (const file of ['users/index.tsx', 'users/show.vue', 'home.tsx', 'home.vue', 'notes.md', 'types.d.ts'])
 		writeFileSync(join(dir, file), '')
-	return { dir, dts: join(root, 'types', 'inertia-pages.d.ts') }
+	return { dir, dts: join(root, 'types', 'inertia-pages.d.ts'), check: join(root, 'inertia-pages.check.ts') }
 }
 
 describe('page discovery', () => {
@@ -36,10 +36,27 @@ describe('page discovery', () => {
 		expect(readFileSync(options.dts, 'utf8')).toContain('"about": true')
 	})
 
+	it('checks each .tsx page against its routes, once per name', () => {
+		const options = fixture()
+		generatePages(options)
+		const check = readFileSync(options.check, 'utf8')
+		expect(check).toContain('type _0 = CheckPage<"home", typeof import("./pages/home").default>')
+		expect(check).toContain('type _1 = CheckPage<"users/index", typeof import("./pages/users/index").default>')
+		// .vue pages need their own tooling to type, so they are left out
+		expect(check).not.toContain('users/show')
+		expect(generatePages(options)).toBe(false)
+	})
+
+	it('skips the check file with check: false', () => {
+		const options = fixture()
+		generatePages({ ...options, check: false })
+		expect(existsSync(options.check)).toBe(false)
+	})
+
 	it('regenerates in dev when a page is added or removed', () => {
 		const options = fixture()
 		const listeners: ((file: string) => void)[] = []
-		const plugin = inertiaPages({ dir: 'pages', dts: 'types/inertia-pages.d.ts' })
+		const plugin = inertiaPages({ dir: 'pages', dts: 'types/inertia-pages.d.ts', check: false })
 		plugin.configResolved({ root: join(options.dir, '..') })
 		plugin.buildStart()
 		plugin.configureServer({ watcher: { on: (_event, listener) => listeners.push(listener) } })
@@ -55,8 +72,8 @@ describe('page discovery', () => {
 		const messages: string[] = []
 		console.warn = (message: string) => messages.push(message)
 		try {
-			const { dir, dts } = fixture()
-			generatePages({ dir: join(dir, 'missing'), dts })
+			const { dir, dts, check } = fixture()
+			generatePages({ dir: join(dir, 'missing'), dts, check })
 		} finally {
 			console.warn = warn
 		}
@@ -67,5 +84,12 @@ describe('page discovery', () => {
 		const dir = join(import.meta.dir, 'pages-types/pages')
 		expect(readFileSync(join(import.meta.dir, 'pages-types/inertia-pages.d.ts'), 'utf8'))
 			.toBe(pagesDeclaration(findPages({ dir })))
+		const check = join(import.meta.dir, 'pages-types/inertia-pages.check.ts')
+		expect(readFileSync(check, 'utf8')).toBe(
+			pagesCheck(
+				findPages({ dir }).map((name) => ({ name, file: join(dir, `${name}.tsx`) })),
+				check
+			)
+		)
 	})
 })
