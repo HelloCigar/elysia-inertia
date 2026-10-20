@@ -12,7 +12,9 @@ helpers, and end-to-end types.
 Configure the plugin once and `.use()` that instance wherever pages are
 rendered. A feature plugin that only needs the macro and types may also
 `.use(inertia())` with no options: it follows the app's configured instance
-whichever order they're registered in.
+whichever order they're registered in. It can't see the configured flash
+type, though, so `flash()` there is a type error; a plugin that flashes uses
+the configured instance.
 
 ```ts
 // server/inertia.ts
@@ -136,7 +138,8 @@ that field's message.
 `formBody(schema)` sets the route's `body` and adds an `errors()` whose keys
 are checked against the schema's dot paths (`FieldPath<Body>`), the same keys
 `form.errors` reads on the client. Spread it to add other options:
-`{ ...formBody(schema), detail }`. `inertia.errors()` accepts any keys, or
+`{ ...formBody(schema), detail }`. `errors()` chains into `back()`,
+`location()` or `render()`; flash through `inertia.flash()`. `inertia.errors()` accepts any keys, or
 pass the body type to check them: `inertia.errors<typeof body>(...)`.
 
 Errors and flash wait in a cookie (`inertia_flash`) until the next rendered

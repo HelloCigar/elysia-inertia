@@ -1,4 +1,4 @@
-import type { FlashValues } from './flash'
+import type { FlashValues, UnconfiguredFlash } from './flash'
 import type { InertiaContext } from './plugin'
 import type { InertiaProp } from './props'
 import type { InertiaResponse, RegisteredApp } from './types'
@@ -119,11 +119,14 @@ type SharedOf<App> = UnionToIntersection<
 		: never
 >
 
-// The configured store's flash shape; `{}` from a bare inertia() drops out
+// The configured store's flash shape. A bare inertia() can't flash, so it
+// adds nothing
 type FlashOf<App> = UnionToIntersection<
 	DeriveOf<App> extends infer D
 		? D extends { inertia: InertiaContext<any, infer Flash> }
-			? Flash
+			? Flash extends UnconfiguredFlash
+				? {}
+				: Flash
 			: never
 		: never
 >

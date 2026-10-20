@@ -34,7 +34,8 @@ export type {
 	FlashContext,
 	FlashData,
 	FlashStore,
-	FlashValues
+	FlashValues,
+	UnconfiguredFlash
 } from './flash'
 export type { SSROptions } from './html'
 export type { RescueHandler } from './page'

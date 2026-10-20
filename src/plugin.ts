@@ -13,7 +13,8 @@ import {
 	type FlashContext,
 	type FlashData,
 	type FlashStore,
-	type FlashValues
+	type FlashValues,
+	type UnconfiguredFlash
 } from './flash'
 import { defaultRootView, pageBody, renderSSR, type SSROptions } from './html'
 import { buildPage, type RescueHandler } from './page'
@@ -252,10 +253,14 @@ interface RenderLambda extends MacroTypeLambda {
 	output: RenderOutput<this['input']>
 }
 
+// What `errors()` chains into. Not `flash()`: the macro can't see the
+// configured store's type, so use `inertia.flash()` for that
+type AfterErrors = Pick<InertiaContext, 'back' | 'location' | 'render'>
+
 interface FormOutput<Body> {
 	body: Body
 	/** `inertia.errors()` with keys checked against the form's fields */
-	errors(errors: FormErrors<Body>, bag?: string): InertiaContext
+	errors(errors: FormErrors<Body>, bag?: string): AfterErrors
 }
 
 interface FormLambda extends MacroTypeLambda {
@@ -293,10 +298,12 @@ const warnedPlainProps = new Set<string>()
  *   )
  * ```
  */
-export const inertia = <Shared extends Props = {}, Flash extends object = {}>(
-	options?: InertiaOptions<Shared, Flash>
-) => {
-	if (!options) return core as unknown as InertiaPlugin<Shared, Flash>
+export function inertia(): InertiaPlugin<{}, UnconfiguredFlash>
+export function inertia<Shared extends Props = {}, Flash extends object = {}>(
+	options: InertiaOptions<Shared, Flash>
+): InertiaPlugin<Shared, Flash>
+export function inertia(options?: InertiaOptions<any, any>): unknown {
+	if (!options) return core
 
 	const own: InertiaOptions<any, any> = options
 
@@ -312,7 +319,7 @@ export const inertia = <Shared extends Props = {}, Flash extends object = {}>(
 			else activeOptions.set(request, own)
 		})
 		.use(core)
-		.as('plugin') as unknown as InertiaPlugin<Shared, Flash>
+		.as('plugin')
 }
 
 const createCore = <Shared extends Props = {}, Flash extends object = {}>() =>
