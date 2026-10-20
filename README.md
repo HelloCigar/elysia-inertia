@@ -49,7 +49,7 @@ export const app = new Elysia()
 
 Options: `version`, `share`, `rootView`, `id` (mount id, default `app`),
 `ssr` (`{ render }` or `{ url }` of an Inertia SSR server; falls back to
-client rendering on failure), `encryptHistory`.
+client rendering on failure or after `timeout` ms, default 5000), `encryptHistory`.
 
 Context (`inertia`): `render(component, props?, { status? })`, `errors()`, `flash()`,
 `share(key, value)` / `share(props)`, `clearHistory()`, `encryptHistory()`,
