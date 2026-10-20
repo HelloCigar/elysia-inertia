@@ -47,6 +47,8 @@ export type {
 } from './infer'
 export type {
 	ComponentName,
+	FieldPath,
+	FormErrors,
 	InertiaPages,
 	InertiaResponse,
 	InertiaShared,
