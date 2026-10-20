@@ -18,10 +18,7 @@ const createApp = (options: Parameters<typeof inertia>[0] = {}) =>
 			inertia.clearHistory().encryptHistory()
 			return render()
 		})
-		.get('/shared', { inertia: 'shared' }, ({ render, inertia }) => {
-			inertia.share('fromRequest', 1)
-			return render({ own: true })
-		})
+		.get('/shared', { inertia: 'shared' }, ({ render }) => render({ own: true }))
 		.get('/missing', { inertia: 'errors/404' }, ({ render }) => render({}, { status: 404 }))
 		.get('/external', ({ inertia }) => inertia.location('https://example.com'))
 		.post('/back', ({ inertia }) => inertia.back())
@@ -135,10 +132,10 @@ describe('Inertia visit (JSON)', () => {
 		expect(page.props.id).toBe('7')
 	})
 
-	it('merges shared props: config, then per request, then page props', async () => {
+	it('merges shared props, then page props', async () => {
 		const app = createApp({ share: ({ path }) => ({ path, own: false }) })
 		const page = await (await visit(app, '/shared', inertiaHeaders)).json()
-		expect(page.props).toEqual({ errors: {}, path: '/shared', own: true, fromRequest: 1 })
+		expect(page.props).toEqual({ errors: {}, path: '/shared', own: true })
 	})
 
 	it('emits history flags only when enabled', async () => {

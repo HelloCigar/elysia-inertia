@@ -1,8 +1,8 @@
 // The client helpers against Inertia's own React types
-import { useForm } from '@inertiajs/react'
+import { useForm, usePage } from '@inertiajs/react'
 import type { UrlMethodPair } from '@inertiajs/core'
 import { Elysia, t } from 'elysia'
-import { createRoutes, type BodyOf, type PathsOf } from '../src/client'
+import { createRoutes, type BodyOf, type ErrorsOf, type PathsOf } from '../src/client'
 
 const app = new Elysia()
 	.get('/users', { query: t.Object({ page: t.Optional(t.Number()) }) }, () => 'users')
@@ -46,5 +46,13 @@ function Form() {
 	store.fields({ name: '', age: 0 })
 
 	form.submit(store)
+
+	// The same form's errors from the page, flat or under its error bag
+	const { props } = usePage()
+	store.errors(props.errors).address?.length
+	store.errors(props.errors, 'createUser')['address.city'] satisfies string | undefined
+	// @ts-expect-error not a field of the body schema
+	store.errors(props.errors).nmae
+	expect<Equal<ReturnType<typeof store.errors>, ErrorsOf<typeof app, 'post', '/users'>>>()
 }
 void Form

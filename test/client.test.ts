@@ -53,4 +53,11 @@ describe('action()', () => {
 		expect(update.method).toBe('put')
 		expect(update.fields({ name: 'Ada' })).toEqual({ name: 'Ada' })
 	})
+
+	it('reads its errors from the page, flat or under a bag', () => {
+		const create = action('post', '/users')
+		expect(create.errors({ name: 'Required.' })).toEqual({ name: 'Required.' })
+		expect(create.errors({ createUser: { email: 'Taken.' } }, 'createUser')).toEqual({ email: 'Taken.' })
+		expect(create.errors({}, 'createUser')).toEqual({})
+	})
 })

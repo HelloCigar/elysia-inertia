@@ -13,7 +13,8 @@ import {
 	type FlashContext,
 	type FlashData,
 	type FlashStore,
-	type FlashValues
+	type FlashValues,
+	type UnconfiguredFlash
 } from './flash'
 import { defaultRootView, pageBody, renderSSR, type SSROptions } from './html'
 import { buildPage, type RescueHandler } from './page'
@@ -25,13 +26,12 @@ import type {
 	FormErrors,
 	InertiaRequest,
 	InertiaResponse,
-	InertiaShared,
 	MaybePromise,
 	Props,
 	RootViewContext
 } from './types'
 
-export interface InertiaOptions<Shared extends Props = {}> {
+export interface InertiaOptions<Shared extends Props = {}, Flash extends object = {}> {
 	/**
 	 * Current asset version, e.g. a hash of the Vite manifest. A GET visit
 	 * holding another version is answered with a 409 full reload
@@ -49,8 +49,11 @@ export interface InertiaOptions<Shared extends Props = {}> {
 	encryptHistory?: boolean
 	/** Report a rescued deferred prop's error (default `console.error`) */
 	onRescue?: RescueHandler
-	/** Where errors and flash data wait for the next page (default: a cookie) */
-	flash?: FlashStore
+	/**
+	 * Where errors and flash data wait for the next page (default: a cookie).
+	 * Its type parameter types `flash()`: `cookieFlashStore<{ toast: string }>()`
+	 */
+	flash?: FlashStore<Flash>
 	/**
 	 * A failed `body`/`query`/`params` schema on a non-GET Inertia request
 	 * flashes the field errors and redirects back with a 303. Pass `false`
@@ -68,11 +71,6 @@ export interface RenderOptions {
 	status?: number
 }
 
-/** What `inertia.share()` accepts: registered keys, or anything */
-type SharedValues = keyof InertiaShared extends never
-	? Props
-	: Partial<InertiaShared>
-
 /** Lets `share()` queue props that resolve only when a page renders */
 export const addSharedResolver = Symbol('inertia.addSharedResolver')
 
@@ -80,29 +78,28 @@ const MUTATING_METHODS = new Set(['PUT', 'PATCH', 'DELETE'])
 
 const defaultFlashStore = cookieFlashStore()
 
-const resolveVersion = async (version: InertiaOptions['version']) =>
+const resolveVersion = async (version: InertiaOptions<any, any>['version']) =>
 	typeof version === 'function' ? await version() : (version ?? '')
 
 /**
  * Per-request Inertia API, available as `inertia` on the Elysia context
  */
-export class InertiaContext<Shared extends Props = {}> {
+export class InertiaContext<Shared extends Props = {}, Flash extends object = {}> {
 	readonly request: InertiaRequest
 
-	#shared: Props = {}
 	#sharedResolvers: (() => MaybePromise<Props>)[] = []
 	#clearHistory = false
 	#encryptHistory: boolean
 	#pending: FlashData = {}
-	readonly #store: FlashStore
+	readonly #store: FlashStore<Flash>
 
 	constructor(
 		private readonly context: Context,
-		private readonly options: InertiaOptions<Shared>
+		private readonly options: InertiaOptions<Shared, Flash>
 	) {
 		this.request = parseInertiaRequest(context.request.headers)
 		this.#encryptHistory = options.encryptHistory ?? false
-		this.#store = options.flash ?? defaultFlashStore
+		this.#store = options.flash ?? (defaultFlashStore as FlashStore<Flash>)
 	}
 
 	get #flashContext(): FlashContext {
@@ -122,24 +119,14 @@ export class InertiaContext<Shared extends Props = {}> {
 	}
 
 	/** Ephemeral data for the next rendered page, sent as `page.flash` */
-	flash<K extends keyof FlashValues & string>(key: K, value: FlashValues[K]): this
-	flash(data: FlashValues): this
+	flash<K extends keyof FlashValues<Flash> & string>(key: K, value: FlashValues<Flash>[K]): this
+	flash(data: FlashValues<Flash>): this
 	flash(keyOrData: string | Record<string, unknown>, value?: unknown): this {
 		this.#pending.flash = {
 			...this.#pending.flash,
 			...(typeof keyOrData === 'string' ? { [keyOrData]: value } : keyOrData)
 		}
 		this.#store.write(this.#flashContext, this.#pending)
-		return this
-	}
-
-	/** Add props to every page rendered for this request */
-	share(props: SharedValues): this
-	share<K extends keyof SharedValues & string>(key: K, value: SharedValues[K]): this
-	share(keyOrProps: string | Props, value?: unknown): this {
-		if (typeof keyOrProps === 'string') this.#shared[keyOrProps] = value
-		else Object.assign(this.#shared, keyOrProps)
-
 		return this
 	}
 
@@ -184,7 +171,6 @@ export class InertiaContext<Shared extends Props = {}> {
 			errors: bag && Object.keys(errors).length ? { [bag]: errors } : errors,
 			...(await options.share?.(context)),
 			...Object.assign({}, ...(await Promise.all(this.#sharedResolvers.map((resolve) => resolve())))),
-			...this.#shared,
 			...props
 		}
 		// Errors are always sent, even when a partial reload excludes them
@@ -267,10 +253,14 @@ interface RenderLambda extends MacroTypeLambda {
 	output: RenderOutput<this['input']>
 }
 
+// What `errors()` chains into. Not `flash()`: the macro can't see the
+// configured store's type, so use `inertia.flash()` for that
+type AfterErrors = Pick<InertiaContext, 'back' | 'location' | 'render'>
+
 interface FormOutput<Body> {
 	body: Body
 	/** `inertia.errors()` with keys checked against the form's fields */
-	errors(errors: FormErrors<Body>, bag?: string): InertiaContext
+	errors(errors: FormErrors<Body>, bag?: string): AfterErrors
 }
 
 interface FormLambda extends MacroTypeLambda {
@@ -280,16 +270,18 @@ interface FormLambda extends MacroTypeLambda {
 // The configured instance's options, per request. A feature plugin can
 // `.use(inertia())` for the macro and types and still follow the app's config,
 // whichever order the two are registered in
-const activeOptions = new WeakMap<Request, InertiaOptions<any>>()
+const activeOptions = new WeakMap<Request, InertiaOptions<any, any>>()
 let configuredInstances = 0
 
-const optionsFor = (request: Request, fallback: InertiaOptions<any>) =>
+const optionsFor = (request: Request, fallback: InertiaOptions<any, any>) =>
 	activeOptions.get(request) ?? fallback
 
 const isPlainObject = (value: unknown) =>
 	typeof value === 'object' &&
 	value !== null &&
 	[Object.prototype, null].includes(Object.getPrototypeOf(value))
+
+const warnedPlainProps = new Set<string>()
 
 /**
  * Inertia v3 server adapter for Elysia 2. Configure it once and `.use()` the
@@ -306,12 +298,14 @@ const isPlainObject = (value: unknown) =>
  *   )
  * ```
  */
-export const inertia = <Shared extends Props = {}>(
-	options?: InertiaOptions<Shared>
-) => {
-	if (!options) return core as unknown as InertiaPlugin<Shared>
+export function inertia(): InertiaPlugin<{}, UnconfiguredFlash>
+export function inertia<Shared extends Props = {}, Flash extends object = {}>(
+	options: InertiaOptions<Shared, Flash>
+): InertiaPlugin<Shared, Flash>
+export function inertia(options?: InertiaOptions<any, any>): unknown {
+	if (!options) return core
 
-	const own: InertiaOptions<any> = options
+	const own: InertiaOptions<any, any> = options
 
 	return new Elysia({ name: 'elysia-inertia/config', seed: ++configuredInstances })
 		// onRequest runs for every route of the app, even ones registered
@@ -325,22 +319,19 @@ export const inertia = <Shared extends Props = {}>(
 			else activeOptions.set(request, own)
 		})
 		.use(core)
-		.as('plugin') as unknown as InertiaPlugin<Shared>
+		.as('plugin')
 }
 
-const createCore = <Shared extends Props = {}>() =>
+const createCore = <Shared extends Props = {}, Flash extends object = {}>() =>
 	new Elysia({ name: 'elysia-inertia' })
 		.derive('plugin', (context) => ({
-			inertia: new InertiaContext<Shared>(
+			inertia: new InertiaContext<Shared, Flash>(
 				context as Context,
-				optionsFor(context.request, {}) as InertiaOptions<Shared>
+				optionsFor(context.request, {}) as InertiaOptions<Shared, Flash>
 			)
 		}))
 		.macro({
-			/**
-			 * Bind the route to a page component and add a typed `render`.
-			 * Returning plain props renders them too, untyped
-			 */
+			/** Bind the route to a page component and add a typed `render` */
 			inertia: (component: ComponentName) => ({
 				$type: macroType<RenderLambda>(),
 				derive: ({ inertia }: { inertia: InertiaContext }) =>
@@ -348,15 +339,14 @@ const createCore = <Shared extends Props = {}>() =>
 						render: (props?: Props, renderOptions?: RenderOptions) =>
 							inertia.render(component, props, renderOptions)
 					}) as {},
-				afterHandle: ({
-					inertia,
-					responseValue
-				}: {
-					inertia: InertiaContext
-					responseValue: unknown
-				}) => {
-					if (isPlainObject(responseValue))
-						return inertia.render(component, responseValue as Props) as never
+				// Plain props skip the page types, so they are sent as plain JSON;
+				// say so once, since this used to render
+				afterHandle: ({ responseValue }: { responseValue: unknown }) => {
+					if (!isPlainObject(responseValue) || warnedPlainProps.has(component)) return
+					warnedPlainProps.add(component)
+					console.warn(
+						`[inertia] The "${component}" route returned plain props; return render(props) to render the page`
+					)
 				}
 			}),
 			/**
@@ -441,7 +431,7 @@ const createCore = <Shared extends Props = {}>() =>
 
 const core = createCore()
 
-/** The plugin's type, with the configured shared props */
-export type InertiaPlugin<Shared extends Props = {}> = ReturnType<
-	typeof createCore<Shared>
+/** The plugin's type, with the configured shared props and flash data */
+export type InertiaPlugin<Shared extends Props = {}, Flash extends object = {}> = ReturnType<
+	typeof createCore<Shared, Flash>
 >

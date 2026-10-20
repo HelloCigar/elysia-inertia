@@ -1,0 +1,53 @@
+// Flash data typed by the configured store, read back by InertiaConfigOf
+import { Elysia } from 'elysia'
+import { cookieFlashStore, inertia, share, type InertiaConfigOf } from '../src'
+
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
+const expect = <T extends true>() => {}
+
+type Toast = { kind: 'success' | 'error'; text: string }
+const pages = inertia({ flash: cookieFlashStore<{ toast: Toast }>({ secret: 's' }) })
+
+const app = new Elysia()
+	.use(pages)
+	.post('/ok', ({ inertia }) => inertia.flash('toast', { kind: 'success', text: 'Saved' }).back())
+	.post('/object', ({ inertia }) => inertia.flash({ toast: { kind: 'error', text: 'No' } }).back())
+	// @ts-expect-error not a declared kind
+	.post('/kind', ({ inertia }) => inertia.flash('toast', { kind: 'info', text: 'hi' }).back())
+	// @ts-expect-error not a declared key
+	.post('/key', ({ inertia }) => inertia.flash('banner', 'hi').back())
+	.get('/', ({ inertia }) => inertia.render('home'))
+
+expect<Equal<InertiaConfigOf<typeof app>['flashDataType'], { toast?: Toast }>>()
+
+// A bare inertia() can't see the store's type, so it can't flash
+new Elysia()
+	.use(inertia())
+	// @ts-expect-error flash() needs the configured instance
+	.post('/f', ({ inertia }) => inertia.flash('toast', { kind: 'success', text: 'ok' }).back())
+	// @ts-expect-error flash() needs the configured instance
+	.post('/g', ({ inertia }) => inertia.flash({ toast: { kind: 'success', text: 'ok' } }).back())
+	.post('/h', ({ inertia }) => inertia.errors({ email: 'Taken.' }).back())
+const feature = new Elysia().use(inertia()).get('/f', ({ inertia }) => inertia.render('feature'))
+const composed = new Elysia().use(pages).use(feature).get('/', ({ inertia }) => inertia.render('home'))
+expect<Equal<InertiaConfigOf<typeof composed>['flashDataType'], { toast?: Toast }>>()
+expect<Equal<InertiaConfigOf<typeof feature>['flashDataType'], Record<string, unknown>>>()
+
+// One reusing the configured instance keeps it typed
+const typedFeature = new Elysia()
+	.use(pages)
+	// @ts-expect-error the configured store's type applies here too
+	.post('/f', ({ inertia }) => inertia.flash('toast', 123).back())
+const typedComposed = new Elysia().use(pages).use(typedFeature).get('/', ({ inertia }) => inertia.render('home'))
+expect<Equal<InertiaConfigOf<typeof typedComposed>['flashDataType'], { toast?: Toast }>>()
+
+// share() carries the store's type along
+const shared = new Elysia()
+	.use(pages)
+	.derive(share(() => ({ appName: 'Acme' })))
+	.post('/s', ({ inertia }) => inertia.flash('toast', { kind: 'success', text: 'ok' }).back())
+expect<Equal<InertiaConfigOf<typeof shared>['flashDataType'], { toast?: Toast }>>()
+
+// Without a typed store, any key goes
+const loose = new Elysia().use(inertia({ version: '1' })).post('/', ({ inertia }) => inertia.flash('x', 1).back())
+expect<Equal<InertiaConfigOf<typeof loose>['flashDataType'], Record<string, unknown>>>()

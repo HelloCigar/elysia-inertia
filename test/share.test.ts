@@ -14,7 +14,7 @@ const app = new Elysia()
 	.derive(share(async ({ user }) => (calls++, { auth: { user }, stats: defer(() => 1) })))
 	.get('/', ({ inertia }) => inertia.render('home', { page: 1 }))
 	.get('/api', () => 'plain')
-	.get('/override', ({ inertia }) => inertia.share('auth', { user: 'x' }).render('home'))
+	.get('/override', ({ inertia }) => inertia.render('home', { auth: { user: 'x' } }))
 
 const visit = (path: string, headers: Record<string, string> = {}) =>
 	app
@@ -30,7 +30,7 @@ describe('share()', () => {
 		expect(page.deferredProps).toEqual({ default: ['stats'] })
 	})
 
-	it('lets a handler override a shared prop', async () => {
+	it('lets a page prop override a shared one', async () => {
 		const page = await visit('/override', { 'x-user': 'ada' })
 		expect(page.props.auth).toEqual({ user: 'x' })
 	})

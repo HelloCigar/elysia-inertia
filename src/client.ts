@@ -10,7 +10,7 @@
  * ```
  */
 import type { InertiaConfigOf, InferPages, PageProps } from './infer'
-import type { RegisteredApp } from './types'
+import type { FormErrors, RegisteredApp } from './types'
 import type {
 	BodyOf,
 	HttpMethod,
@@ -52,7 +52,19 @@ export interface FormAction<Method extends HttpMethod, Body> {
 	method: Method
 	/** Typed identity: `useForm(store.fields({ ... }))` infers the body type */
 	fields(data: Body): Body
+	/**
+	 * This form's errors from `page.props.errors`, keyed by its fields; pass
+	 * the error bag the form submits with to read its namespace
+	 */
+	errors(errors: object, bag?: string): FormErrors<Body>
 }
+
+/** A route's validation errors, keyed by its body's dot paths */
+export type ErrorsOf<
+	App extends AnyApp,
+	Method extends HttpMethod,
+	Path extends PathsOf<App, Method>
+> = FormErrors<BodyOf<App, Method, Path>>
 
 const buildUrl = (
 	path: string,
@@ -110,7 +122,9 @@ export const createRoutes = <App extends AnyApp = RegisteredApp>(): Routes<App> 
 		action: (method: HttpMethod, path: string, options?: UrlInput) => ({
 			url: buildUrl(path, options),
 			method,
-			fields: (data: unknown) => data
+			fields: (data: unknown) => data,
+			errors: (errors: Record<string, unknown>, bag?: string) =>
+				(bag ? errors[bag] : errors) ?? {}
 		})
 	}) as unknown as Routes<App>
 
@@ -120,12 +134,15 @@ export type PageName = keyof InferPages<RegisteredApp> & string
 // Later props win, as when `render()` spreads them
 type Override<A, B> = { [K in keyof (Omit<A, keyof B> & B)]: (Omit<A, keyof B> & B)[K] } & {}
 
+/** `page.props.errors` as Inertia types it: flat, or namespaced by error bag */
+export type PageErrors = Record<string, string> & Record<string, Record<string, string>>
+
 /**
  * What a page component receives: errors, the shared props, then its own,
- * each overriding the last. Inertia types `errors` flat, so this does too
+ * each overriding the last
  */
 export type PageComponentProps<Name extends PageName> = Override<
-	Override<{ errors: Record<string, string> }, InertiaConfigOf['sharedPageProps']>,
+	Override<{ errors: PageErrors }, InertiaConfigOf['sharedPageProps']>,
 	PageProps<Name>
 >
 

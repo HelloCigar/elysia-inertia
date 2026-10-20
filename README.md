@@ -12,7 +12,9 @@ helpers, and end-to-end types.
 Configure the plugin once and `.use()` that instance wherever pages are
 rendered. A feature plugin that only needs the macro and types may also
 `.use(inertia())` with no options: it follows the app's configured instance
-whichever order they're registered in.
+whichever order they're registered in. It can't see the configured flash
+type, though, so `flash()` there is a type error; a plugin that flashes uses
+the configured instance.
 
 ```ts
 // server/inertia.ts
@@ -34,8 +36,7 @@ import { pages } from './inertia'
 
 export const app = new Elysia()
 	.use(pages)
-	// Macro: binds the route to a page and adds a typed `render`.
-	// Returning plain props renders too, but only render() is typed end to end
+	// Macro: binds the route to a page and adds a typed `render`
 	.get('/users', { inertia: 'users/index' }, ({ render }) =>
 		render({ users: () => db.users.all() })
 	)
@@ -52,7 +53,7 @@ Options: `version`, `share`, `rootView`, `id` (mount id, default `app`),
 client rendering on failure or after `timeout` ms, default 5000), `encryptHistory`.
 
 Context (`inertia`): `render(component, props?, { status? })`, `errors()`, `flash()`,
-`share(key, value)` / `share(props)`, `clearHistory()`, `encryptHistory()`,
+`clearHistory()`, `encryptHistory()`,
 `location(url)`, `back(fallback?)`, and `request` (parsed Inertia headers).
 
 Props may be functions or promises; they're resolved at render time, and
@@ -75,8 +76,8 @@ export const app = new Elysia()
 ```
 
 The callback runs only when a page renders, so API routes skip it. Inside a
-plugin, use `.derive('plugin', share(...))`. A handler can still
-override one for its request with `inertia.share(key, value)`.
+plugin, use `.derive('plugin', share(...))`. A page prop overrides a shared
+one of the same name.
 
 ## Prop types
 
@@ -137,7 +138,8 @@ that field's message.
 `formBody(schema)` sets the route's `body` and adds an `errors()` whose keys
 are checked against the schema's dot paths (`FieldPath<Body>`), the same keys
 `form.errors` reads on the client. Spread it to add other options:
-`{ ...formBody(schema), detail }`. `inertia.errors()` accepts any keys, or
+`{ ...formBody(schema), detail }`. `errors()` chains into `back()`,
+`location()` or `render()`; flash through `inertia.flash()`. `inertia.errors()` accepts any keys, or
 pass the body type to check them: `inertia.errors<typeof body>(...)`.
 
 Errors and flash wait in a cookie (`inertia_flash`) until the next rendered
@@ -147,13 +149,13 @@ when an app trusts or renders flash data as HTML. It is `Secure` on https
 requests; behind a proxy that terminates TLS, pass `cookieFlashStore({ secure: true })`.
 Swap the store with `inertia({ flash: { read, write } })`; tune or disable the automatic
 handling with `inertia({ validation: { errors, redirect } | false })`. Type the
-flash data once:
+flash data on the store; `flash()` and the client's `page.flash` follow it:
 
 ```ts
-declare module 'elysia-inertia' {
-	interface InertiaFlash { toast: string }
-}
+inertia({ flash: cookieFlashStore<{ toast: { kind: 'success' | 'error'; text: string } }>() })
 ```
+
+A custom store types it the same way, as `FlashStore<{ toast: … }>`.
 
 Once props with `ttl` get a new `expiresAt` on every response that mentions
 them, so the expiry slides forward while the page is in use; pass `expiresAt`
@@ -188,9 +190,8 @@ export default definePage('users/index', ({ users, auth }) => <List users={users
 A child component that reads the page itself still names it:
 `usePage<PageProps<'users/index'>>()`.
 
-Shared props come from `inertia({ share })` and `share()`. Only props set ad
-hoc with `inertia.share()` in handlers need declaring, in
-`interface InertiaShared` of `declare module 'elysia-inertia'`.
+Shared props come from `inertia({ share })` and `share()`, flash data from
+the store's type; nothing else to declare.
 
 Without `Register`, pass the app explicitly: `PagePropsOf<typeof app, 'users/index'>`,
 `InertiaConfigOf<typeof app>`, `createRoutes<typeof app>()`. `InferPages<typeof app>`
@@ -262,10 +263,13 @@ const store = action('post', '/users')
 const form = useForm(store.fields({ name: '', email: '' })) // typed by the body schema
 form.errors.email // keyed by the same fields
 form.submit(store)
+
+// Errors on the page, typed by the same body; pass the form's error bag if it sends one
+store.errors(usePage().props.errors, 'createUser').email
 ```
 
 Without `fields()`, type the form directly: `useForm<FormOf<typeof app, 'post', '/users'>>({ ... })`.
-`BodyOf`, `QueryOf`, `ParamsOf` and `PathsOf` are exported from
+`BodyOf`, `QueryOf`, `ParamsOf`, `ErrorsOf` and `PathsOf` are exported from
 `elysia-inertia/client` for anything else. Lower-level building blocks
 (`buildPage`, `serializePage`, …) live in `elysia-inertia/internal`.
 

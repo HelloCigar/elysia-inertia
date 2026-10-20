@@ -4,21 +4,29 @@ import type { HTTPHeaders } from 'elysia'
 
 import type { MaybePromise } from './types'
 
-/**
- * Register the shape of flashed data, for `inertia.flash()` and the
- * client's `page.flash`
- *
- * ```ts
- * declare module 'elysia-inertia' {
- *   interface InertiaFlash { toast: { kind: 'success' | 'error'; text: string } }
- * }
- * ```
- */
-export interface InertiaFlash {}
+declare const unconfigured: unique symbol
 
-export type FlashValues = keyof InertiaFlash extends never
-	? Record<string, unknown>
-	: Partial<InertiaFlash>
+/**
+ * The flash shape of a bare `inertia()`: it can't see the configured
+ * store's type, so `flash()` there would send data the client's type
+ * doesn't allow
+ */
+export interface UnconfiguredFlash {
+	readonly [unconfigured]: true
+}
+
+type NeedsConfigured =
+	'[inertia] flash() needs the configured inertia({ ... }) instance; .use() it instead of a bare inertia()'
+
+/**
+ * What `flash()` accepts for a store's declared shape: its keys, anything
+ * for an untyped store, or nothing on a bare `inertia()`
+ */
+export type FlashValues<Flash> = Flash extends UnconfiguredFlash
+	? { [K in NeedsConfigured]?: never }
+	: keyof Flash extends never
+		? Record<string, unknown>
+		: Partial<Flash>
 
 /** What survives until the next rendered page */
 export interface FlashData {
@@ -39,7 +47,9 @@ export interface FlashContext {
  * it. Writes are synchronous so they land on the current response; a store
  * backed by a session can mutate a session loaded earlier in the request
  */
-export interface FlashStore {
+export interface FlashStore<Flash extends object = {}> {
+	/** Type only: the flashed data's shape, for `flash()` and `page.flash` */
+	readonly '~flash'?: Flash
 	read(context: FlashContext): MaybePromise<FlashData | undefined>
 	write(context: FlashContext, data: FlashData | undefined): void
 }
@@ -93,15 +103,16 @@ const setCookie = (
 
 /**
  * Default store: a short-lived cookie holding base64url JSON. Keep flashed
- * data small; browsers cap a cookie at about 4 KB
+ * data small; browsers cap a cookie at about 4 KB. Type the flashed data
+ * with `cookieFlashStore<{ toast: string }>()`
  */
-export const cookieFlashStore = ({
+export const cookieFlashStore = <Flash extends object = {}>({
 	name = 'inertia_flash',
 	secure,
 	domain,
 	path = '/',
 	secret
-}: CookieFlashStoreOptions = {}): FlashStore => {
+}: CookieFlashStoreOptions = {}): FlashStore<Flash> => {
 	const sign = (payload: string) =>
 		createHmac('sha256', secret!).update(payload).digest('base64url')
 

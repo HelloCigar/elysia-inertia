@@ -36,16 +36,25 @@ describe('API review fixes', () => {
 		expect((await res.json()).component).toBe('users')
 	})
 
-	it('renders plain props returned from a macro route', async () => {
+	it('sends plain props from a macro route as JSON, once warning to render()', async () => {
 		const app = new Elysia()
 			.use(inertia({ version: 'v9' }))
 			.get('/plain', { inertia: 'plain' }, () => ({ y: 2 }))
 			.get('/text', { inertia: 'text' }, () => 'not a page')
-		const res = await app.handle(new Request('http://localhost/plain', { headers }))
-		expect(res.headers.get('x-inertia')).toBe('true')
-		expect((await res.json()).props).toEqual({ errors: {}, y: 2 })
-		// Anything that isn't a props object is left alone
-		expect(await (await app.handle(new Request('http://localhost/text', { headers }))).text()).toBe('not a page')
+		const warn = console.warn
+		const messages: string[] = []
+		console.warn = (message: string) => messages.push(message)
+		try {
+			for (const _ of [1, 2]) {
+				const res = await app.handle(new Request('http://localhost/plain', { headers }))
+				expect(res.headers.get('x-inertia')).toBeNull()
+				expect(await res.json()).toEqual({ y: 2 })
+			}
+			expect(await (await app.handle(new Request('http://localhost/text', { headers }))).text()).toBe('not a page')
+		} finally {
+			console.warn = warn
+		}
+		expect(messages).toEqual(['[inertia] The "plain" route returned plain props; return render(props) to render the page'])
 	})
 })
 

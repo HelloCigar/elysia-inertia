@@ -1,6 +1,6 @@
 import { Elysia } from 'elysia'
 import { inertia } from 'elysia-inertia'
-import { definePage, type CheckPage, type PageComponentProps } from 'elysia-inertia/client'
+import { definePage, type CheckPage, type PageComponentProps, type PageErrors } from 'elysia-inertia/client'
 
 declare module 'elysia-inertia' {
 	interface Register {
@@ -25,7 +25,7 @@ const expect = <T extends true>() => {}
 // A page gets its own props, the shared ones and errors
 expect<Equal<
 	PageComponentProps<'users/index'>,
-	{ errors: Record<string, string>; appName: string; users: { id: number; name: string }[] }
+	{ errors: PageErrors; appName: string; users: { id: number; name: string }[] }
 >>()
 expect<Equal<PageComponentProps<'about'>['appName'], number>>()
 
