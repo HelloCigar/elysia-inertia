@@ -1,0 +1,1 @@
+{"extends": "../../tsconfig.json", "include": ["mistakes.ts", "step-3.ts", "step-4.ts", "step-5.ts", "step-6.tsx"]}
