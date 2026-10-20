@@ -13,4 +13,4 @@ const ok: UsersProps = { users: [{ id: 2 }] }
 type Typo = PagePropsOf<typeof app, 'user/index'>
 
 // 2. Wrong prop shape
-const wrong: UsersProps = { users: [{ id: '2' }] }
+const wrong: UsersProps = { users: [{ id: 1 }] }

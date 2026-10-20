@@ -6,8 +6,8 @@ import {
 	type PageId,
 	type PropConfig,
 	type ScrollCursor
-} from './props'
-import type { InertiaRequest, PageObject, Props } from './types'
+} from './props.js'
+import type { InertiaRequest, PageObject, Props } from './types.js'
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> => {
 	if (typeof value !== 'object' || value === null) return false

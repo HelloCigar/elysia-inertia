@@ -1,4 +1,4 @@
-import type { MaybePromise } from './types'
+import type { MaybePromise } from './types.js'
 
 /** A prop value, or a function producing it (called only when the prop is sent) */
 export type Resolvable<T> = T | (() => MaybePromise<T>)

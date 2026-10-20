@@ -1,4 +1,4 @@
-import type { InertiaRequest } from './types'
+import type { InertiaRequest } from './types.js'
 
 const list = (value: string | null) =>
 	value

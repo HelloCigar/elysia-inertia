@@ -3,7 +3,7 @@
 import type { SharedPageProps } from '@inertiajs/core'
 import { usePage } from '@inertiajs/react'
 import { Elysia, t } from 'elysia'
-import { inertia, share, type InertiaConfigOf, type PageProps } from '../../src'
+import { inertia, share, type InertiaConfigOf } from '../../src'
 import { createRoutes, type FormOf } from '../../src/client'
 
 interface User {
@@ -35,10 +35,6 @@ const expect = <T extends true>() => {}
 expect<Equal<SharedPageProps, { appName: string; auth: { user: { id: number; name: string } | null } }>>()
 
 // No `typeof app` needed anywhere on the client
-expect<Equal<PageProps<'users/index'>, { users: { id: number; name: string }[] }>>()
-// @ts-expect-error unknown page
-type Missing = PageProps<'nope'>
-
 const { url, action } = createRoutes()
 url('/users')
 // @ts-expect-error unknown path
@@ -47,7 +43,7 @@ action('post', '/users').fields({ name: 'Ada' })
 expect<Equal<FormOf<typeof app, 'post', '/users'>, { name: string }>>()
 
 export function Users() {
-	const { props } = usePage<PageProps<'users/index'>>()
+	const { props } = usePage<{ users: User[] }>()
 	props.users[0]?.name satisfies string | undefined
 	props.auth.user?.name satisfies string | undefined
 	props.appName satisfies string

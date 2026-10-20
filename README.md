@@ -3,9 +3,20 @@
 Inertia.js v3 server adapter for Elysia 2, built against the
 [Inertia protocol spec](https://github.com/thetutlage/inertia-protocol/blob/main/protocol.md).
 
-Status: steps 1–6 of the plan: core transport, Elysia surface, partial
-reloads, every prop category, validation errors and flash, typed client
-helpers, and end-to-end types.
+## Installation
+
+```sh
+bun add elysia-inertia elysia@2.0.0-rc.0
+```
+
+Use Bun and Elysia 2. Install your Inertia v3 client adapter (such as
+`@inertiajs/react`) in the frontend app. The package ships ESM JavaScript
+and TypeScript declarations; no TypeScript compilation of dependencies is
+needed.
+
+Entry points: `elysia-inertia` for the server plugin,
+`elysia-inertia/client` for browser helpers, `elysia-inertia/vite` for page
+generation, and `elysia-inertia/internal` for lower-level integrations.
 
 ## Server
 
@@ -18,16 +29,38 @@ the configured instance.
 
 ```ts
 // server/inertia.ts
-import { inertia, viteVersion } from 'elysia-inertia'
+import { inertia } from 'elysia-inertia'
 
 export const pages = inertia({
-	version: viteVersion('dist/.vite/manifest.json'), // 409 full reload when the client is stale
-	share: () => ({ appName: 'Acme' }),
-	rootView: ({ head, body }) => `<!DOCTYPE html>
-<html><head>${head}<script type="module" src="/build/app.js"></script></head>
-<body>${body}</body></html>`
+	vite: { entry: 'src/client/app.tsx', react: true },
+	share: () => ({ appName: 'Acme' })
 })
 ```
+
+`vite` loads your client entry on the initial load. In dev (`NODE_ENV` isn't
+`production`) it adds the dev server's `@vite/client`, the entry, and with
+`react: true` the React Refresh preamble `@vitejs/plugin-react` needs. In
+production it reads the manifest (set `build.manifest: true`) and adds the
+entry's script, CSS, and preloads for its imports, and versions assets by the
+manifest's hash, so a stale client gets a 409 full reload. Options: `entry`
+(one or an array), `react`, `dev`, `devServer` (default
+`http://localhost:5173`), `manifest` (default `dist/.vite/manifest.json`),
+`base` (Vite's `base`, default `/`). An explicit `version` wins.
+
+Use an absolute `base` (`/build/` or a CDN URL). A relative one (`./`) makes
+the asset URLs resolve against each page's path, so they break on nested
+routes like `/users/1`; the plugin warns about it in production.
+
+The tags go in `head`, so a custom `rootView` still gets them:
+
+```ts
+rootView: ({ head, body }) => `<!DOCTYPE html>
+<html lang="en"><head><title>Acme</title>${head}</head><body>${body}</body></html>`
+```
+
+Serve the build yourself, e.g. with `@elysiajs/static` at the same `base`.
+`viteTags(options)` returns the same tags for HTML outside Inertia, and
+`viteVersion(manifest)` the version alone.
 
 ```ts
 // server/index.ts
@@ -48,7 +81,7 @@ export const app = new Elysia()
 	.get('/docs', ({ inertia }) => inertia.location('https://example.com'))
 ```
 
-Options: `version`, `share`, `rootView`, `id` (mount id, default `app`),
+Options: `vite`, `version`, `share`, `rootView`, `id` (mount id, default `app`),
 `ssr` (`{ render }` or `{ url }` of an Inertia SSR server; falls back to
 client rendering on failure or after `timeout` ms, default 5000), `encryptHistory`.
 
@@ -116,8 +149,8 @@ scroll prop to `prependProps`.
 
 Partial reloads honour `X-Inertia-Partial-Data` / `-Except` with dot paths
 (`team.members`). Rescued errors go to `inertia({ onRescue })` (default
-`console.error`). On the client, optional and deferred props are typed as
-optional keys.
+`console.error`). See [Typed pages](#typed-pages) for how these are checked
+against the page's props.
 
 ## Validation errors and flash
 
@@ -161,9 +194,101 @@ Once props with `ttl` get a new `expiresAt` on every response that mentions
 them, so the expiry slides forward while the page is in use; pass `expiresAt`
 for a fixed one.
 
-## End-to-end types
+## Typed pages
 
-Register the app once; every client helper then reads it:
+Each page declares its props, like any component; `render()` is checked
+against them, so a missing, mistyped or extra prop is an error at the call:
+
+```tsx
+// src/pages/users/index.tsx
+export default function Users({ users, stats }: { users: User[]; stats?: Stats }) { … }
+```
+
+```ts
+.get('/users', { inertia: 'users/index' }, ({ render }) =>
+	render({ users: () => db.users.all(), stats: defer(() => loadStats()) })
+)
+render({})                          // error: users is missing
+render({ users, passwordHash })     // error: the page doesn't declare passwordHash
+render({ users: defer(() => all) }) // error: users is required, so it can't be deferred
+render({ users: [{ ...user, joined: new Date() }] }) // error: the page gets a string, not a Date
+```
+
+- Each value may be the prop itself, or functions and promises resolving to
+  it, also nested in objects and arrays. Only the page's own types pass: send
+  what the client receives (a `Date` serializes to a string, so convert it).
+- Prop helpers work at static object paths. `defer()` and `optional()` leave
+  the prop out of the first render, so they need a prop the page marks `?`
+  (or `| undefined`).
+- `errors` is never passed to `render()`. A prop that `inertia({ share })`
+  always provides, with a type the page accepts, is optional there and may
+  be overridden; a lazy or differently typed shared prop doesn't count. Shared props added with `share()`
+  aren't known to the macro's `render`: read them with `usePage()` rather than
+  declaring them as page props.
+- A page without props takes `render()` with none.
+
+### Generating the pages
+
+The Vite plugin writes `InertiaPages` from the pages folder: each page's
+props come from its default export's type, so editing a page's props needs
+no regeneration, and a route naming a page with no file fails the typecheck.
+
+```ts
+// vite.config.ts
+import { inertiaPages } from 'elysia-inertia/vite'
+
+export default defineConfig({
+	plugins: [inertiaPages({ dir: 'src/pages', dts: 'inertia-pages.d.ts' })]
+})
+```
+
+```ts
+// inertia-pages.d.ts (generated)
+declare module 'elysia-inertia' {
+	interface InertiaPages {
+		"users/index": PropsOf<typeof import("./src/pages/users/index").default>
+		"settings": true
+	}
+}
+```
+
+It writes the file on build and whenever a page is added or removed in dev
+(relative paths follow Vite's `root`; keep the pages folder inside it so dev
+changes are seen). Include it in the server's tsconfig and commit it. The
+server's typecheck then loads the page files, so it needs `jsx` and React's
+types. Without Vite, run `generatePages({ dir, dts })` from
+`elysia-inertia/vite` in a script.
+
+`.vue`, `.svelte` and JavaScript pages, whose props `tsc` can't read (or
+needs `allowJs` for), are `true`: the name is checked, any props pass. A page must not type its own props through
+`PageProps<'its name'>`, which would refer to itself.
+
+Or write the pages by hand:
+
+```ts
+declare module 'elysia-inertia' {
+	interface InertiaPages { 'users/index': { users: User[] }; 'posts/show': true }
+}
+```
+
+With no pages registered, any name and props pass.
+
+`render('users/index')` sends only the name; the client's `resolve` maps it
+to a file:
+
+```tsx
+createInertiaApp({
+	resolve: (name) =>
+		import.meta.glob<{ default: ComponentType }>('./pages/**/*.tsx', { eager: true })[
+			`./pages/${name}.tsx`
+		],
+	setup: ({ el, App, props }) => createRoot(el).render(<App {...props} />)
+})
+```
+
+### Shared props and the client
+
+Register the app once for the shared props, flash data and `createRoutes()`:
 
 ```ts
 // client/inertia.d.ts
@@ -179,69 +304,12 @@ declare module '@inertiajs/core' {
 }
 ```
 
-```tsx
-// pages/users/index.tsx
-import { definePage } from 'elysia-inertia/client'
-
-// The name is checked against the app; users and shared props are inferred
-export default definePage('users/index', ({ users, auth }) => <List users={users} />)
-```
-
-A child component that reads the page itself still names it:
-`usePage<PageProps<'users/index'>>()`.
-
 Shared props come from `inertia({ share })` and `share()`, flash data from
-the store's type; nothing else to declare.
+the store's type; nothing else to declare. A child component that reads a
+page's props names it: `usePage<PageProps<'users/index'>>()`.
 
-Without `Register`, pass the app explicitly: `PagePropsOf<typeof app, 'users/index'>`,
-`InertiaConfigOf<typeof app>`, `createRoutes<typeof app>()`. `InferPages<typeof app>`
-gives the whole `{ component: props }` map, read from Elysia's route table.
-### Page names
-
-`render('users/index')` sends only the name; the client's `resolve` maps it
-to a file:
-
-```tsx
-createInertiaApp({
-	resolve: (name) =>
-		import.meta.glob<{ default: ComponentType }>('./pages/**/*.tsx', { eager: true })[
-			`./pages/${name}.tsx`
-		],
-	setup: ({ el, App, props }) => createRoot(el).render(<App {...props} />)
-})
-```
-
-The Vite plugin generates the page names from that folder, so a route that
-names a page with no file fails the typecheck:
-
-```ts
-// vite.config.ts
-import { inertiaPages } from 'elysia-inertia/vite'
-
-export default defineConfig({
-	plugins: [inertiaPages({ dir: 'src/pages', dts: 'inertia-pages.d.ts' })]
-})
-```
-
-It writes `inertia-pages.d.ts` on build and whenever a page is added or
-removed in dev (relative paths follow Vite's `root`; keep the pages folder
-inside it so dev changes are seen); include it in the server's tsconfig and commit it. Without
-Vite, run `generatePages({ dir, dts })` from `elysia-inertia/vite` in a
-script.
-
-With `Register`, it also writes `inertia-pages.check.ts` (option `check`;
-`false` to skip). For each `.tsx` page it checks that the file's default
-export accepts the props its routes render and, if it uses `definePage`,
-names the page the file is. Include it in the client's tsconfig and commit
-it. `.vue` and `.svelte` pages are left to `vue-tsc` / `svelte-check`.
-
-Or write the list by hand:
-
-```ts
-declare module 'elysia-inertia' {
-	interface InertiaPages { 'users/index': true; 'posts/show': true }
-}
-```
+Without `Register`, pass the app explicitly: `InertiaConfigOf<typeof app>`,
+`createRoutes<typeof app>()`.
 
 ## Typed links and forms (client)
 
@@ -279,4 +347,19 @@ Without `fields()`, type the form directly: `useForm<FormOf<typeof app, 'post', 
 bun install
 bun test        # runtime behaviour, mapped to the spec sections
 bun run typecheck  # includes test/**/*.test-d.ts type assertions
+bun run build     # JavaScript and declarations in dist/
+bun run check:package # public exports, consumer types, and browser bundle
 ```
+
+To use the package locally before publishing:
+
+```sh
+bun pm pack
+# In another project:
+bun add /path/to/elysia-inertia-0.2.0.tgz
+```
+
+Packing builds the package automatically. Only `dist/`, the README, and
+package metadata are included. `bun publish` runs the tests, type checks,
+and package checks before publishing version `0.2.0` to the configured
+registry.
