@@ -79,9 +79,14 @@ const escapeAttribute = (value: string) =>
 
 const script = (src: string) => `<script type="module" src="${escapeAttribute(src)}"></script>`
 
+// The dev server serves at the base's path: a relative base (`./`) is the
+// root, and a full URL (a CDN) contributes only its pathname
+const devBase = (base = '/') =>
+	base === '' || base.startsWith('.') ? '/' : new URL(base, 'http://localhost').pathname
+
 const devTags = (options: ViteOptions) => {
 	const origin = (options.devServer ?? 'http://localhost:5173').replace(/\/$/, '')
-	const at = (path: string) => origin + url(options.base ?? '/', path)
+	const at = (path: string) => origin + url(devBase(options.base), path)
 
 	// The preamble @vitejs/plugin-react injects into HTML that Vite serves
 	const refresh = options.react

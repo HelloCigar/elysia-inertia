@@ -1,3 +1,4 @@
+import type { Serialized } from './infer.js'
 import type { InertiaProp } from './props.js'
 
 export type MaybePromise<T> = T | Promise<T>
@@ -147,8 +148,10 @@ export type PropInput<T> =
 
 type PlainInput<T> = T extends Primitive
 	? T
-	: T extends readonly (infer Item)[]
-		? readonly PropInput<Item>[]
+	: T extends readonly unknown[]
+		? number extends T['length']
+			? readonly PropInput<T[number]>[]
+			: { [K in keyof T]: PropInput<T[K]> } // a tuple keeps its length and positions
 		: T extends object
 			? { [K in keyof T]: PropInput<T[K]> }
 			: T
@@ -186,18 +189,28 @@ export type RenderProps<T> = [keyof T] extends [never] ? Record<string, never> :
 	}
 >
 
+// Page props a shared prop always provides, with a type the page accepts
+type CoveredKeys<P, Shared> = {
+	[K in keyof P & keyof Shared]-?: {} extends Pick<Shared, K>
+		? never
+		: Shared[K] extends P[K]
+			? K
+			: never
+}[keyof P & keyof Shared]
+
 /**
- * `render()`'s props for a page: `errors` comes from `errors()` and the
- * shared props from `share`, so neither is required, but a shared one may
- * be overridden
+ * `render()`'s props for a page: `errors` comes from `errors()`, so it is
+ * never passed, and a prop the `share` option always provides with a type
+ * the page accepts is optional, to override. A shared prop that may be
+ * missing, or of another type, leaves the page prop required
  */
 export type PageRenderProps<Component, Shared> =
 	DeclaredProps<Component> extends infer P
 		? P extends Unchecked
 			? Props
-			: RenderProps<
-					Omit<P, 'errors' | keyof Shared> & Partial<Pick<P, Exclude<keyof P & keyof Shared, 'errors'>>>
-				>
+			: CoveredKeys<P, Serialized<Shared>> extends infer Covered extends keyof P
+				? RenderProps<Omit<P, 'errors' | Covered> & Partial<Pick<P, Exclude<Covered, 'errors'>>>>
+				: never
 		: never
 
 /**

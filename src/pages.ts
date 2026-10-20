@@ -25,8 +25,11 @@ const defaults = {
 	dts: 'inertia-pages.d.ts'
 }
 
-/** Extensions `tsc` can read a page's props from */
-const TYPED = ['.tsx', '.ts', '.jsx', '.js']
+/**
+ * Extensions `tsc` reads a page's props from. JavaScript pages need
+ * `allowJs`, so they are name only
+ */
+const TYPED = ['.tsx', '.ts']
 
 const walk = (dir: string): string[] =>
 	readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
@@ -61,18 +64,20 @@ export const findPages = (options: PagesOptions = {}) =>
 	// `home.tsx` and `home.vue` are one page name
 	[...new Set(scanPages(options).map((page) => page.name))].sort()
 
+// `.js` resolves to the `.ts`/`.tsx` source under every moduleResolution,
+// where `node16`/`nodenext` reject a path without an extension
 const specifier = (file: string, from: string) => {
 	const path = relative(dirname(resolve(from)), resolve(file))
 		.split(sep)
 		.join('/')
-		.replace(/\.[jt]sx?$/, '')
+		.replace(/\.tsx?$/, '.js')
 	return path.startsWith('.') ? path : `./${path}`
 }
 
 /**
  * The `InertiaPages` declaration: each page's props from its default
  * export's type, or `true` (name only) for pages `tsc` can't read, like
- * `.vue` and `.svelte`. A name with files in several formats is name only
+ * `.vue`, `.svelte` and JavaScript. A name with files in several formats is name only
  */
 export const pagesDeclaration = (options: PagesOptions = {}) => {
 	const { dts } = { ...defaults, ...options }

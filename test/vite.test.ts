@@ -51,6 +51,13 @@ describe('vite in dev', () => {
 		)
 	})
 
+	it('serves a relative or full-URL base at its path on the dev server', () => {
+		expect(viteTags({ entry: 'app.tsx', dev: true, base: './' })()).toContain('src="http://localhost:5173/@vite/client"')
+		expect(viteTags({ entry: 'app.tsx', dev: true, base: 'https://cdn.example/app/' })()).toContain(
+			'src="http://localhost:5173/app/app.tsx"'
+		)
+	})
+
 	it('has no asset version, so visits are not reloaded', async () => {
 		const app = new Elysia()
 			.use(inertia({ vite: { entry: 'app.tsx', dev: true } }))

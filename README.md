@@ -216,8 +216,9 @@ render({ users: [{ ...user, joined: new Date() }] }) // error: the page gets a s
 - Prop helpers work at static object paths. `defer()` and `optional()` leave
   the prop out of the first render, so they need a prop the page marks `?`
   (or `| undefined`).
-- `errors` is never passed to `render()`. Shared props from `inertia({ share })`
-  are optional there, and may be overridden. Shared props added with `share()`
+- `errors` is never passed to `render()`. A prop that `inertia({ share })`
+  always provides, with a type the page accepts, is optional there and may
+  be overridden; a lazy or differently typed shared prop doesn't count. Shared props added with `share()`
   aren't known to the macro's `render`: read them with `usePage()` rather than
   declaring them as page props.
 - A page without props takes `render()` with none.
@@ -254,8 +255,8 @@ server's typecheck then loads the page files, so it needs `jsx` and React's
 types. Without Vite, run `generatePages({ dir, dts })` from
 `elysia-inertia/vite` in a script.
 
-`.vue` and `.svelte` pages, whose props `tsc` can't read, are `true`: the name
-is checked, any props pass. A page must not type its own props through
+`.vue`, `.svelte` and JavaScript pages, whose props `tsc` can't read (or
+needs `allowJs` for), are `true`: the name is checked, any props pass. A page must not type its own props through
 `PageProps<'its name'>`, which would refer to itself.
 
 Or write the pages by hand:

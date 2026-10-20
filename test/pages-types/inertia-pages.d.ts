@@ -3,10 +3,10 @@ import type { PropsOf } from 'elysia-inertia'
 
 declare module 'elysia-inertia' {
 	interface InertiaPages {
-		"about": PropsOf<typeof import("./pages/about").default>
-		"home": PropsOf<typeof import("./pages/home").default>
+		"about": PropsOf<typeof import("./pages/about.js").default>
+		"home": PropsOf<typeof import("./pages/home.js").default>
 		"settings": true
-		"users/index": PropsOf<typeof import("./pages/users/index").default>
-		"users/show": PropsOf<typeof import("./pages/users/show").default>
+		"users/index": PropsOf<typeof import("./pages/users/index.js").default>
+		"users/show": PropsOf<typeof import("./pages/users/show.js").default>
 	}
 }

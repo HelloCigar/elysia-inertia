@@ -34,7 +34,7 @@ const expect = <T extends true>() => {}
 expect<Equal<PageName, 'about' | 'home' | 'settings' | 'users/index' | 'users/show'>>()
 expect<Equal<PageProps<'home'>, { message: string }>>()
 expect<Equal<PageProps<'about'>, {}>>()
-expect<Equal<PageProps<'users/show'>, { user: { id: number } }>>()
+expect<Equal<PageProps<'users/show'>, { user: { id: number }; range?: [string, number] }>>()
 expect<Equal<SharedPageProps, { appName: string }>>()
 
 const pages = new Elysia().use(inertia({ share: () => ({ appName: 'demo' }) }))
@@ -108,6 +108,20 @@ pages.get('/', { inertia: 'users/index' }, ({ render }) => render({ users, total
 // Without the shared prop configured, the page's appName is required
 // @ts-expect-error appName is required
 new Elysia().use(inertia()).get('/', { inertia: 'users/index' }, ({ render }) => render({ users, total: 1, filters }))
+
+// A shared prop covers a page prop only when it always provides a type the page accepts
+// @ts-expect-error appName is shared as a number, so the page's string is still required
+new Elysia().use(inertia({ share: () => ({ appName: 1 }) })).get('/', { inertia: 'users/index' }, ({ render }) => render({ users, total: 1, filters }))
+// @ts-expect-error a lazy shared prop may be missing, so it doesn't cover it
+new Elysia().use(inertia({ share: () => ({ appName: optional(() => 'demo') }) })).get('/', { inertia: 'users/index' }, ({ render }) => render({ users, total: 1, filters }))
+new Elysia().use(inertia({ share: () => ({ appName: always('demo') }) })).get('/', { inertia: 'users/index' }, ({ render }) => render({ users, total: 1, filters }))
+
+// Tuples keep their length and positions
+pages.get('/', { inertia: 'users/show' }, ({ render }) => render({ user: { id: 1 }, range: ['a', () => 2] }))
+// @ts-expect-error a tuple's length is checked
+pages.get('/', { inertia: 'users/show' }, ({ render }) => render({ user: { id: 1 }, range: ['a'] }))
+// @ts-expect-error and its positions
+pages.get('/', { inertia: 'users/show' }, ({ render }) => render({ user: { id: 1 }, range: [2, 'a'] }))
 
 // A page `tsc` can't read takes any props
 pages.get('/', ({ inertia }) => inertia.render('settings'))
