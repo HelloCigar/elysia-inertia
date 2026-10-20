@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { Elysia, t } from 'elysia'
-import { inertia } from '../src'
+import { formBody, inertia } from '../src'
 
 const createApp = (options: Parameters<typeof inertia>[0] = {}) =>
 	new Elysia()
@@ -17,6 +17,11 @@ const createApp = (options: Parameters<typeof inertia>[0] = {}) =>
 				})
 			},
 			({ inertia }) => inertia.flash('toast', 'Created').back()
+		)
+		.put(
+			'/users/1/email',
+			formBody(t.Object({ email: t.String({ format: 'email', error: 'Not an email.' }) })),
+			({ body, errors }) => errors({ email: `${body.email} is taken.` }, 'email').back()
 		)
 		.post('/manual', ({ inertia }) => inertia.errors({ email: 'Taken.' }).back())
 		.post('/manual-bag', ({ inertia }) => inertia.errors({ email: 'Taken.' }, 'login').back())
@@ -46,6 +51,24 @@ const session = (app: ReturnType<typeof createApp>) => {
 		return res
 	}
 }
+
+describe('formBody', () => {
+	it('validates the body like a body schema', async () => {
+		const visit = session(createApp())
+		const res = await visit('/users/1/email', { method: 'PUT', body: { email: 'nope' } })
+		expect(res.status).toBe(303)
+		expect((await (await visit('/users/create')).json()).props.errors).toEqual({ email: 'Not an email.' })
+	})
+
+	it('flashes errors() from the handler, with its bag', async () => {
+		const visit = session(createApp())
+		const res = await visit('/users/1/email', { method: 'PUT', body: { email: 'ada@example.com' } })
+		expect(res.status).toBe(303)
+		expect((await (await visit('/users/create')).json()).props.errors).toEqual({
+			email: { email: 'ada@example.com is taken.' }
+		})
+	})
+})
 
 const badUser = { name: 'a', age: 'x', address: {}, tags: [1] }
 

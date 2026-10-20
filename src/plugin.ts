@@ -1,4 +1,11 @@
-import { Elysia, macroType, type Context, type MacroTypeLambda } from 'elysia'
+import {
+	Elysia,
+	macroType,
+	type AnySchema,
+	type Context,
+	type MacroTypeLambda,
+	type UnwrapSchema
+} from 'elysia'
 
 import {
 	cookieFlashStore,
@@ -260,6 +267,16 @@ interface RenderLambda extends MacroTypeLambda {
 	output: RenderOutput<this['input']>
 }
 
+interface FormOutput<Body> {
+	body: Body
+	/** `inertia.errors()` with keys checked against the form's fields */
+	errors(errors: FormErrors<Body>, bag?: string): InertiaContext
+}
+
+interface FormLambda extends MacroTypeLambda {
+	output: FormOutput<UnwrapSchema<this['input'] & AnySchema>>
+}
+
 // The configured instance's options, per request. A feature plugin can
 // `.use(inertia())` for the macro and types and still follow the app's config,
 // whichever order the two are registered in
@@ -341,6 +358,21 @@ const createCore = <Shared extends Props = {}>() =>
 					if (isPlainObject(responseValue))
 						return inertia.render(component, responseValue as Props) as never
 				}
+			}),
+			/**
+			 * A form submission's body schema, usually set by `formBody()`:
+			 * validates like `body` and adds `errors()`, whose keys are checked
+			 * against the schema's fields. Alone it doesn't type the route's
+			 * body for the client; `formBody()` sets `body` too
+			 */
+			form: (schema: AnySchema) => ({
+				$type: macroType<FormLambda>(),
+				body: schema,
+				derive: ({ inertia }: { inertia: InertiaContext }) =>
+					({
+						errors: (errors: Record<string, string>, bag?: string) =>
+							inertia.errors(errors, bag)
+					}) as {}
 			})
 		})
 		// Stale client assets: force a full reload (protocol section 7)

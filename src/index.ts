@@ -1,3 +1,4 @@
+export { formBody } from './form'
 export { inertia } from './plugin'
 export { share } from './share'
 export type {
