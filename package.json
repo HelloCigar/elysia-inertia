@@ -8,11 +8,12 @@
   "exports": {
     ".": "./src/index.ts",
     "./client": "./src/client.ts",
-    "./internal": "./src/internal.ts"
+    "./internal": "./src/internal.ts",
+    "./vite": "./src/vite-entry.ts"
   },
   "scripts": {
     "test": "bun test",
-    "typecheck": "tsc -p . && tsc -p test/register"
+    "typecheck": "tsc -p . && tsc -p test/register && tsc -p test/pages-types"
   },
   "peerDependencies": {
     "elysia": ">=2.0.0-rc.0"
