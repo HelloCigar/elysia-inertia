@@ -72,8 +72,8 @@ describe('page discovery', () => {
 		const messages: string[] = []
 		console.warn = (message: string) => messages.push(message)
 		try {
-			const { dir, dts } = fixture()
-			generatePages({ dir: join(dir, 'missing'), dts })
+			const { dir, dts, check } = fixture()
+			generatePages({ dir: join(dir, 'missing'), dts, check })
 		} finally {
 			console.warn = warn
 		}
