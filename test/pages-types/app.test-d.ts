@@ -60,6 +60,10 @@ pages.get('/', ({ inertia }) => inertia.render('home'))
 pages.get('/', ({ inertia }) => inertia.render('home', { message: 'x', extra: 1 }))
 // @ts-expect-error a page without props takes none
 pages.get('/', ({ inertia }) => inertia.render('about', { x: 1 }))
+// Destructured render is checked the same way
+pages.get('/', ({ inertia: { render } }) => render('home', { message: 'x' }))
+// @ts-expect-error message is required
+pages.get('/', ({ inertia: { render } }) => render('home'))
 // @ts-expect-error class component props are checked too
 pages.get('/', ({ inertia }) => inertia.render('users/show', { user: { id: '1' } }))
 

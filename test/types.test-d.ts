@@ -30,3 +30,10 @@ expect<Equal<
 >>()
 const lazyApp = new Elysia().use(inertia({ share: () => ({ csrf: always('t') }) }))
 expect<Equal<InertiaConfigOf<typeof lazyApp>['sharedPageProps'], { csrf: string }>>()
+
+// Destructured from the context, the helpers keep their types
+new Elysia().use(inertia()).get('/stats', ({ inertia: { render, defer, always } }) => {
+	const props = { visits: defer(() => 1), csrf: always('t') }
+	expect<Equal<Serialized<typeof props>, { visits?: number; csrf: string }>>()
+	return render('stats', props)
+})
