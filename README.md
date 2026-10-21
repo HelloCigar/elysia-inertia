@@ -61,7 +61,8 @@ export const app = new Elysia()
 
 Options: `vite` (below), `version`, `share`, `rootView`, `id` (mount id, default `app`),
 `ssr` (`{ render }` or `{ url }` of an Inertia SSR server; falls back to
-client rendering on failure or after `timeout` ms, default 5000), `encryptHistory`.
+client rendering on failure or after `timeout` ms, default 5000), `encryptHistory`,
+`routes` (see [Typed redirects](#typed-redirects)).
 
 Props may be functions or promises; they're resolved at render time, and
 only when the prop is actually sent.
@@ -71,7 +72,7 @@ only when the prop is actually sent.
 | Member | Does |
 | --- | --- |
 | `render(component, props?, { status? })` | JSON for an Inertia visit, the HTML document otherwise |
-| `redirect(path, { params?, query? })` | 303 to a page of the app (see below) |
+| `redirect(path, { params?, query? })` | 303 to a page of the app, [typed](#typed-redirects) |
 | `back(fallback?)` | Redirect to the previous page on this site |
 | `location(url)` | Full browser visit, e.g. to another site (409 + `X-Inertia-Location`) |
 | `errors(errors, bag?)` | Validation errors for the next page |
@@ -103,10 +104,41 @@ and errors or flash set on the request carry over. It fills a route pattern's
 })
 ```
 
-The path isn't checked against the app's routes: a handler of the registered
-app can't take its argument types from `typeof app` without that type
-referring to itself. For a checked path, build it with `createRoutes()` from
-a plugin the handler isn't part of, e.g. `redirect(usersRoutes.url('/users/:id', { params }))`.
+#### Typed redirects
+
+A handler can't read its own app's routes from `typeof app`: TypeScript
+would have to know the app's type to check the handler, and the app's type
+includes that handler, so it gives up and makes the whole app `any`.
+Instead, the plugin writes the routes to a declaration file when the server
+starts in dev, and `redirect()` checks against that file:
+
+```ts
+inertia({ routes: 'inertia-routes.d.ts' })
+```
+
+```ts
+// inertia-routes.d.ts (generated)
+declare module 'elysia-inertia' {
+	interface InertiaRoutes {
+		"/users": true
+		"/users/:id": true
+	}
+}
+```
+
+Include it in the server's tsconfig and commit it. Then a literal path must
+be a GET route, with its params (`:id` required, `:id?` optional, `*`);
+`query` stays a plain record:
+
+```ts
+inertia.redirect('/users/:id', { params: { id: 1 } })
+inertia.redirect('/userz')     // error: not a route
+inertia.redirect('/users/:id') // error: id is missing
+inertia.redirect(returnTo)     // a computed string is accepted as is
+```
+
+A new route is checked once the dev server restarts. In CI or a build
+without a dev start, write it from a script: `writeRoutes(app, 'inertia-routes.d.ts')`.
 
 A plain `302` from Elysia's own `redirect` or `back()` after PUT, PATCH or
 DELETE is sent as `303` too, so the browser doesn't repeat the method.

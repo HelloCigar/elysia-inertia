@@ -36,6 +36,7 @@
   "exclude": [
     "test/register",
     "test/pages-types",
+    "test/routes-types",
     "test/package"
   ]
 }

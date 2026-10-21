@@ -26,7 +26,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "bun test",
-    "typecheck": "tsc -p . && tsc -p test/register && tsc -p test/pages-types",
+    "typecheck": "tsc -p . && tsc -p test/register && tsc -p test/pages-types && tsc -p test/routes-types",
     "check:package": "bun run build && tsc -p test/package && bun run scripts/check-package.ts",
     "prepack": "bun run build",
     "prepublishOnly": "bun run typecheck && bun test && bun run check:package"

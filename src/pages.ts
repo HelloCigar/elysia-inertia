@@ -104,7 +104,7 @@ ${lines.join('\n')}
 }
 
 // Git may check a committed file out with CRLF; that is not a change
-const writeIfChanged = (file: string, content: string) => {
+export const writeIfChanged = (file: string, content: string) => {
 	if (existsSync(file) && readFileSync(file, 'utf8').replace(/\r\n/g, '\n') === content)
 		return false
 
