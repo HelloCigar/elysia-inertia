@@ -27,6 +27,11 @@ export const app = new Elysia()
 		inertia.redirect('/posts/:id?')
 		inertia.redirect('/posts/:id?', { params: { id: 2 } })
 		inertia.redirect('/files/*', { params: { '*': 'a/b' } })
+		const id = 1 as number
+		inertia.redirect(`/users/${id}`)
+		inertia.redirect(`/users/${String(id)}?tab=info`)
+		// @ts-expect-error a route without params takes none
+		inertia.redirect('/users', { params: { bogus: 1 } })
 		// @ts-expect-error not a route
 		inertia.redirect('/userz')
 		// @ts-expect-error missing params

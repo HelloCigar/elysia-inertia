@@ -126,19 +126,23 @@ declare module 'elysia-inertia' {
 }
 ```
 
-Include it in the server's tsconfig and commit it. Then a literal path must
-be a GET route, with its params (`:id` required, `:id?` optional, `*`);
+The path is relative to the working directory. Include the file in the
+server's tsconfig and commit it. Then a literal path must be a GET (or
+`.all()`) route, with its params (`:id` required, `:id?` optional, `*`);
 `query` stays a plain record:
 
 ```ts
 inertia.redirect('/users/:id', { params: { id: 1 } })
 inertia.redirect('/userz')     // error: not a route
 inertia.redirect('/users/:id') // error: id is missing
-inertia.redirect(returnTo)     // a computed string is accepted as is
+inertia.redirect(`/users/${id}`) // templates and computed strings pass as they are
+inertia.redirect(returnTo)
 ```
 
-A new route is checked once the dev server restarts. In CI or a build
-without a dev start, write it from a script: `writeRoutes(app, 'inertia-routes.d.ts')`.
+The file is written when the app calls `.listen()` outside production, so a
+new route is checked once the dev server restarts. An app served another way
+(`app.handle`, `fetch`), or CI without a dev start, writes it from a script:
+`writeRoutes(app, 'inertia-routes.d.ts')`.
 
 A plain `302` from Elysia's own `redirect` or `back()` after PUT, PATCH or
 DELETE is sent as `303` too, so the browser doesn't repeat the method.

@@ -106,19 +106,30 @@ export interface RedirectOptions<Params = Record<string, unknown>> {
 
 type RoutePath = keyof InertiaRoutes & string
 
+// A plain literal is a unit type; `string` and templates like `/users/${number}`
+// are patterns, which a record over them shows as an index signature
+type IsPattern<Path extends string> = {} extends Record<Path, 1> ? true : false
+
 /**
- * `redirect()`'s options: with `InertiaRoutes` generated, a literal path must
- * be one of them and takes its params; a computed string takes anything
+ * `redirect()`'s path: with `InertiaRoutes` generated, a literal must be one
+ * of the GET routes; computed strings and templates pass as they are
  */
-export type RedirectArgs<Path extends string> = string extends Path
+export type RedirectPath<Path extends string> = [RoutePath] extends [never]
+	? Path
+	: Path extends RoutePath
+		? Path
+		: IsPattern<Path> extends true
+			? Path
+			: RoutePath
+
+/** `redirect()`'s options: a route's params, required when it has any */
+export type RedirectArgs<Path extends string> = [RoutePath] extends [never]
 	? [options?: RedirectOptions]
-	: [RoutePath] extends [never]
-		? [options?: RedirectOptions]
-		: Path extends RoutePath
-			? {} extends PathParams<Path>
-				? [options?: RedirectOptions<PathParams<Path>>]
-				: [options: RedirectOptions<PathParams<Path>> & { params: PathParams<Path> }]
-			: [options: never]
+	: Path extends RoutePath
+		? {} extends PathParams<Path>
+			? [options?: RedirectOptions<keyof PathParams<Path> extends never ? Record<string, never> : PathParams<Path>>]
+			: [options: RedirectOptions<PathParams<Path>> & { params: PathParams<Path> }]
+		: [options?: RedirectOptions]
 
 export interface RenderOptions {
 	status?: number
@@ -320,7 +331,7 @@ export class InertiaContext<Shared extends Props = {}, Flash extends object = {}
 	 * inertia.flash('toast', 'Saved').redirect('/users/:id', { params: { id } })
 	 * ```
 	 */
-	redirect<const Path extends string>(url: Path, ...[options]: RedirectArgs<Path>): Response {
+	redirect<const Path extends string>(url: RedirectPath<Path>, ...[options]: RedirectArgs<Path>): Response {
 		return new Response(null, {
 			status: 303,
 			headers: { location: buildUrl(url, options) }

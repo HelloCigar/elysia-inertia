@@ -13,7 +13,7 @@ export {}
 `
 
 /**
- * Write the app's GET routes as `InertiaRoutes`, so `inertia.redirect()`
+ * Write the app's GET (and `.all()`) routes as `InertiaRoutes`, so `inertia.redirect()`
  * checks paths and params. `inertia({ routes })` calls it when the server
  * starts in dev; call it yourself from a script otherwise. Returns whether
  * the file changed
@@ -23,7 +23,7 @@ export const writeRoutes = (
 	dts = 'inertia-routes.d.ts'
 ) => {
 	const paths = [
-		...new Set(app.routes.filter((route) => route.method === 'GET').map((route) => route.path))
+		...new Set(app.routes.filter((route) => route.method === 'GET' || route.method === 'ALL').map((route) => route.path))
 	].sort()
 
 	return writeIfChanged(dts, routesDeclaration(paths))
