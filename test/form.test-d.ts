@@ -30,7 +30,7 @@ const app = new Elysia()
 		body.age satisfies number
 		// @ts-expect-error not a field of the schema
 		errors({ email: 'x' })
-		return errors({ age: 'Too young.' }).back()
+		return errors({ age: 'Too young.' }).redirect('/users/:id/edit', { params: { id: 1 } })
 	})
 
 expect<Equal<BodyOf<typeof app, 'post', '/users'>, { email: string; address: { city: string } }>>()

@@ -3,6 +3,7 @@ export { inertia } from './plugin.js'
 export { share } from './share.js'
 export type {
 	InertiaContext,
+	RedirectOptions,
 	InertiaOptions,
 	InertiaPlugin,
 	RenderArgs,

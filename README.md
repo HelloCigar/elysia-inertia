@@ -87,7 +87,24 @@ client rendering on failure or after `timeout` ms, default 5000), `encryptHistor
 
 Context (`inertia`): `render(component, props?, { status? })`, `errors()`, `flash()`,
 `clearHistory()`, `encryptHistory()`,
-`location(url)`, `back(fallback?)`, and `request` (parsed Inertia headers).
+`redirect(path, { params?, query? })`, `location(url)`, `back(fallback?)`, and
+`request` (parsed Inertia headers).
+
+`redirect()` answers 303 so the client follows with a GET after any method,
+and errors or flash set on the request carry over. It fills a route pattern's
+`params` and appends `query`; an origin, existing query or `#hash` pass through:
+
+```ts
+.post('/users', ({ inertia, body }) => {
+	const user = db.users.create(body)
+	return inertia.flash('toast', 'Created').redirect('/users/:id', { params: { id: user.id } })
+})
+```
+
+The path isn't checked against the app's routes: a handler of the registered
+app can't take its argument types from `typeof app` without that type
+referring to itself. For a checked path, build it with `createRoutes()` from
+a plugin the handler isn't part of, e.g. `redirect(usersRoutes.url('/users/:id', { params }))`.
 
 Props may be functions or promises; they're resolved at render time, and
 only when the prop is actually sent.
