@@ -1,6 +1,7 @@
 export { formBody } from './form.js'
 export { inertia } from './plugin.js'
 export { share } from './share.js'
+export { writeRoutes } from './routes-dts.js'
 export type {
 	InertiaContext,
 	RedirectOptions,
@@ -48,6 +49,8 @@ export type {
 	FieldPath,
 	FormErrors,
 	InertiaPages,
+	InertiaRoutes,
+	PathParams,
 	InertiaResponse,
 	PageObject,
 	PageProps,

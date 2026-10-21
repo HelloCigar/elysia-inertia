@@ -41,8 +41,11 @@ import type {
 	PagePropsFor,
 	PageRenderProps,
 	Props,
+	InertiaRoutes,
+	PathParams,
 	RootViewContext
 } from './types.js'
+import { writeRoutes } from './routes-dts.js'
 import type { QueryValue } from './routes.js'
 import { buildUrl } from './url.js'
 
@@ -69,6 +72,12 @@ export interface InertiaOptions<Shared extends Props = {}, Flash extends object 
 	ssr?: SSROptions | false
 	/** Default for `encryptHistory` on every page */
 	encryptHistory?: boolean
+	/**
+	 * Write the app's GET routes to this declaration file when the server
+	 * starts in dev, so `inertia.redirect()` checks paths and params. Include
+	 * it in the tsconfig and commit it
+	 */
+	routes?: string
 	/** Report a rescued deferred prop's error (default `console.error`) */
 	onRescue?: RescueHandler
 	/**
@@ -90,10 +99,37 @@ export interface InertiaOptions<Shared extends Props = {}, Flash extends object 
 }
 
 /** Fills `redirect()`'s route pattern and appends to its query */
-export interface RedirectOptions {
-	params?: Record<string, unknown>
+export interface RedirectOptions<Params = Record<string, unknown>> {
+	params?: Params
 	query?: Record<string, QueryValue | QueryValue[]>
 }
+
+type RoutePath = keyof InertiaRoutes & string
+
+// A plain literal is a unit type; `string` and templates like `/users/${number}`
+// are patterns, which a record over them shows as an index signature
+type IsPattern<Path extends string> = {} extends Record<Path, 1> ? true : false
+
+/**
+ * `redirect()`'s path: with `InertiaRoutes` generated, a literal must be one
+ * of the GET routes; computed strings and templates pass as they are
+ */
+export type RedirectPath<Path extends string> = [RoutePath] extends [never]
+	? Path
+	: Path extends RoutePath
+		? Path
+		: IsPattern<Path> extends true
+			? Path
+			: RoutePath
+
+/** `redirect()`'s options: a route's params, required when it has any */
+export type RedirectArgs<Path extends string> = [RoutePath] extends [never]
+	? [options?: RedirectOptions]
+	: Path extends RoutePath
+		? {} extends PathParams<Path>
+			? [options?: RedirectOptions<keyof PathParams<Path> extends never ? Record<string, never> : PathParams<Path>>]
+			: [options: RedirectOptions<PathParams<Path>> & { params: PathParams<Path> }]
+		: [options?: RedirectOptions]
 
 export interface RenderOptions {
 	status?: number
@@ -295,7 +331,7 @@ export class InertiaContext<Shared extends Props = {}, Flash extends object = {}
 	 * inertia.flash('toast', 'Saved').redirect('/users/:id', { params: { id } })
 	 * ```
 	 */
-	redirect(url: string, options?: RedirectOptions): Response {
+	redirect<const Path extends string>(url: RedirectPath<Path>, ...[options]: RedirectArgs<Path>): Response {
 		return new Response(null, {
 			status: 303,
 			headers: { location: buildUrl(url, options) }
@@ -390,6 +426,11 @@ export function inertia(options?: InertiaOptions<any, any>): unknown {
 					'[inertia] Two inertia() instances with options handle this request; configure it once and reuse the instance'
 				)
 			else activeOptions.set(request, own)
+		})
+		// Every route is registered by then, including ones added after this plugin
+		.onStart((app) => {
+			if (own.routes && process.env.NODE_ENV !== 'production')
+				writeRoutes(app as never, own.routes)
 		})
 		.use(core)
 		.as('plugin')
