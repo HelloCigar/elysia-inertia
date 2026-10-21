@@ -27,6 +27,8 @@ const app = new Elysia()
 	.derive(share(({ user }) => ({ auth: { user } })))
 	.get('/users', { inertia: 'users/index' }, ({ render }) => render({ users: [{ id: 1, name: 'Ada' }] }))
 	.post('/users', { body: t.Object({ name: t.String() }) }, () => 'ok')
+	// Redirecting from the registered app's own handlers keeps `typeof app` typed
+	.put('/users/:id', ({ inertia, params }) => inertia.redirect('/users/:id', { params }))
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false
 const expect = <T extends true>() => {}
@@ -48,3 +50,7 @@ export function Users() {
 	props.auth.user?.name satisfies string | undefined
 	props.appName satisfies string
 }
+
+
+type IsAny<T> = 0 extends 1 & T ? true : false
+expect<Equal<IsAny<typeof app>, false>>()

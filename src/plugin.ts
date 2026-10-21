@@ -33,6 +33,8 @@ import type {
 	Props,
 	RootViewContext
 } from './types.js'
+import type { QueryValue } from './routes.js'
+import { buildUrl } from './url.js'
 
 export interface InertiaOptions<Shared extends Props = {}, Flash extends object = {}> {
 	/**
@@ -75,6 +77,12 @@ export interface InertiaOptions<Shared extends Props = {}, Flash extends object 
 				errors?: (error: import('elysia').ValidationError) => Record<string, string>
 				redirect?: (request: Request) => string
 		  }
+}
+
+/** Fills `redirect()`'s route pattern and appends to its query */
+export interface RedirectOptions {
+	params?: Record<string, unknown>
+	query?: Record<string, QueryValue | QueryValue[]>
 }
 
 export interface RenderOptions {
@@ -246,6 +254,22 @@ export class InertiaContext<Shared extends Props = {}, Flash extends object = {}
 			})
 
 		return new Response(null, { status: 302, headers: { location: url } })
+	}
+
+	/**
+	 * Redirect with a 303, so the client follows with a GET whatever the
+	 * request's method. Fills a route pattern's `params` and appends `query`;
+	 * errors and flash set on this request carry over
+	 *
+	 * ```ts
+	 * inertia.flash('toast', 'Saved').redirect('/users/:id', { params: { id } })
+	 * ```
+	 */
+	redirect(url: string, options?: RedirectOptions): Response {
+		return new Response(null, {
+			status: 303,
+			headers: { location: buildUrl(url, options) }
+		})
 	}
 
 	/**

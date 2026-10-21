@@ -15,9 +15,9 @@ import type {
 	HttpMethod,
 	ParamsOf,
 	PathsOf,
-	QueryOf,
-	QueryValue
+	QueryOf
 } from './routes.js'
+import { buildUrl, type UrlArgs } from './url.js'
 
 export type { InertiaPages, PageProps, PropsOf, Register } from './types.js'
 export type {
@@ -31,15 +31,6 @@ export type {
 } from './routes.js'
 
 type AnyApp = { '~Routes': unknown }
-
-type UrlOptions<Params, Query> = ({} extends Params
-	? { params?: Params }
-	: { params: Params }) & { query?: Query }
-
-/** Path parameters are required exactly when the path has some */
-type UrlArgs<Params, Query> = {} extends Params
-	? [options?: UrlOptions<Params, Query>]
-	: [options: UrlOptions<Params, Query>]
 
 /**
  * A form's submit target, `{ url, method }` as `form.submit()` takes it,
@@ -63,35 +54,6 @@ export type ErrorsOf<
 	Method extends HttpMethod,
 	Path extends PathsOf<App, Method>
 > = FormErrors<BodyOf<App, Method, Path>>
-
-const buildUrl = (
-	path: string,
-	options: { params?: object; query?: object } = {}
-) => {
-	const params = (options.params ?? {}) as Record<string, unknown>
-	// A param name runs to the next `/`, like Elysia's router (`:user-id`)
-	const url = path.replace(/:([^/?]+)\??|\*/g, (match, name?: string) => {
-		const value = params[name ?? '*']
-		if (value === undefined || value === null) {
-			if (match.endsWith('?')) return ''
-			throw new TypeError(`[inertia] Missing "${name ?? '*'}" for ${path}`)
-		}
-		return name
-			? encodeURIComponent(String(value))
-			: String(value).split('/').map(encodeURIComponent).join('/')
-	})
-
-	const search = new URLSearchParams()
-	for (const [key, value] of Object.entries(options.query ?? {}))
-		for (const item of [value as QueryValue | QueryValue[]].flat())
-			if (item !== undefined && item !== null) search.append(key, String(item))
-
-	const query = search.toString()
-	// An omitted optional segment can leave `//` or a trailing `/`
-	const clean = url.replace(/\/{2,}/g, '/').replace(/(.)\/$/, '$1')
-
-	return query ? `${clean}?${query}` : clean
-}
 
 export interface Routes<App extends AnyApp> {
 	/** Build a link or visit URL; params and query are checked against the route */
