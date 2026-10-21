@@ -48,5 +48,6 @@ describe('redirect URLs', () => {
 		expect(buildUrl('http://localhost:3000/a/:id', { params: { id: 1 } })).toBe('http://localhost:3000/a/1')
 		expect(buildUrl('/a?x=1#top', { query: { y: 2 } })).toBe('/a?x=1&y=2#top')
 		expect(buildUrl('/users/:id?')).toBe('/users')
+		expect(buildUrl('/s?x=a%20b&sig=a~b&flag', { query: { y: 1 } })).toBe('/s?x=a%20b&sig=a~b&flag&y=1')
 	})
 })

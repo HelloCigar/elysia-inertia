@@ -39,12 +39,13 @@ export const buildUrl = (
 			: String(value).split('/').map(encodeURIComponent).join('/')
 	})
 
-	const search = new URLSearchParams(existing)
+	// The existing query stays byte for byte (signed URLs); new pairs append
+	const search = new URLSearchParams()
 	for (const [key, value] of Object.entries(options.query ?? {}))
 		for (const item of [value as QueryValue | QueryValue[]].flat())
 			if (item !== undefined && item !== null) search.append(key, String(item))
 
-	const query = search.toString()
+	const query = [existing, search.toString()].filter(Boolean).join('&')
 	// An omitted optional segment can leave `//` or a trailing `/`
 	const clean = filled.replace(/\/{2,}/g, '/').replace(/(.)\/$/, '$1')
 

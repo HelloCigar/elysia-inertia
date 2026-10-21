@@ -298,7 +298,7 @@ interface RenderLambda<Shared> extends MacroTypeLambda {
 
 // What `errors()` chains into. Not `flash()`: the macro can't see the
 // configured store's type, so use `inertia.flash()` for that
-type AfterErrors = Pick<InertiaContext, 'back' | 'location' | 'render'>
+type AfterErrors = Pick<InertiaContext, 'back' | 'location' | 'redirect' | 'render'>
 
 interface FormOutput<Body> {
 	body: Body
