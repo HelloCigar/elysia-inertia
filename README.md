@@ -87,8 +87,15 @@ client rendering on failure or after `timeout` ms, default 5000), `encryptHistor
 
 Context (`inertia`): `render(component, props?, { status? })`, `errors()`, `flash()`,
 `clearHistory()`, `encryptHistory()`,
-`redirect(path, { params?, query? })`, `location(url)`, `back(fallback?)`, and
-`request` (parsed Inertia headers).
+`redirect(path, { params?, query? })`, `location(url)`, `back(fallback?)`,
+`request` (parsed Inertia headers), and the prop helpers below (`defer`,
+`optional`, `always`, `merge`, …). Everything destructures:
+
+```ts
+.get('/dashboard', ({ inertia: { render, defer } }) =>
+	render('dashboard', { stats: defer(() => loadStats()) })
+)
+```
 
 `redirect()` answers 303 so the client follows with a GET after any method,
 and errors or flash set on the request carry over. It fills a route pattern's
@@ -130,6 +137,8 @@ plugin, use `.derive('plugin', share(...))`. A page prop overrides a shared
 one of the same name.
 
 ## Prop types
+
+The helpers are imports too, for props built outside a handler:
 
 ```ts
 import { always, defer, optional } from 'elysia-inertia'

@@ -18,7 +18,17 @@ import {
 } from './flash.js'
 import { defaultRootView, pageBody, renderSSR, type SSROptions } from './html.js'
 import { buildPage, type RescueHandler } from './page.js'
-import { always, isInertiaProp } from './props.js'
+import {
+	always,
+	deepMerge,
+	defer,
+	isInertiaProp,
+	merge,
+	once,
+	optional,
+	prepend,
+	scroll
+} from './props.js'
 import { backUrl, pageUrl, parseInertiaRequest } from './request.js'
 import { viteAssets, type ViteOptions } from './vite.js'
 import { isValidationError, validationErrors } from './validation.js'
@@ -115,6 +125,16 @@ const resolveVersion = async ({ version, vite }: InertiaOptions<any, any>) =>
 export class InertiaContext<Shared extends Props = {}, Flash extends object = {}> {
 	readonly request: InertiaRequest
 
+	// Prop helpers, so `({ inertia: { defer } })` needs no extra import
+	readonly always = always
+	readonly optional = optional
+	readonly defer = defer
+	readonly merge = merge
+	readonly prepend = prepend
+	readonly deepMerge = deepMerge
+	readonly once = once
+	readonly scroll = scroll
+
 	#sharedResolvers: (() => MaybePromise<Props>)[] = []
 	#clearHistory = false
 	#encryptHistory: boolean
@@ -128,6 +148,16 @@ export class InertiaContext<Shared extends Props = {}, Flash extends object = {}
 		this.request = parseInertiaRequest(context.request.headers)
 		this.#encryptHistory = options.encryptHistory ?? false
 		this.#store = options.flash ?? (defaultFlashStore as FlashStore<Flash>)
+
+		// Bound, so methods still work destructured: `({ inertia: { redirect } })`
+		this.errors = this.errors.bind(this)
+		this.flash = this.flash.bind(this)
+		this.clearHistory = this.clearHistory.bind(this)
+		this.encryptHistory = this.encryptHistory.bind(this)
+		this.render = this.render.bind(this)
+		this.location = this.location.bind(this)
+		this.redirect = this.redirect.bind(this)
+		this.back = this.back.bind(this)
 	}
 
 	get #flashContext(): FlashContext {
