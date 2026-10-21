@@ -37,6 +37,82 @@ export const pages = inertia({
 })
 ```
 
+```ts
+// server/index.ts
+import { Elysia } from 'elysia'
+import { pages } from './inertia'
+
+export const app = new Elysia()
+	.use(pages)
+	// Macro: binds the route to a page and adds a typed `render`
+	.get('/users', { inertia: 'users/index' }, ({ render }) =>
+		render({ users: () => db.users.all() })
+	)
+	// Or the context API, destructured or not
+	.get('/posts/:id', ({ inertia: { render, defer }, params }) =>
+		render('posts/show', { post: db.posts.find(params.id), comments: defer(() => db.comments.of(params.id)) })
+	)
+	.post('/posts', ({ inertia, body }) =>
+		inertia.flash('toast', 'Created').redirect('/posts/:id', { params: { id: db.posts.create(body).id } })
+	)
+	.delete('/posts/:id', ({ inertia }) => inertia.redirect('/posts'))
+	.get('/docs', ({ inertia }) => inertia.location('https://example.com'))
+```
+
+Options: `vite` (below), `version`, `share`, `rootView`, `id` (mount id, default `app`),
+`ssr` (`{ render }` or `{ url }` of an Inertia SSR server; falls back to
+client rendering on failure or after `timeout` ms, default 5000), `encryptHistory`.
+
+Props may be functions or promises; they're resolved at render time, and
+only when the prop is actually sent.
+
+### The `inertia` context
+
+| Member | Does |
+| --- | --- |
+| `render(component, props?, { status? })` | JSON for an Inertia visit, the HTML document otherwise |
+| `redirect(path, { params?, query? })` | 303 to a page of the app (see below) |
+| `back(fallback?)` | Redirect to the previous page on this site |
+| `location(url)` | Full browser visit, e.g. to another site (409 + `X-Inertia-Location`) |
+| `errors(errors, bag?)` | Validation errors for the next page |
+| `flash(key, value)` / `flash(data)` | Data for the next page's `page.flash` |
+| `clearHistory()`, `encryptHistory()` | History flags for this page |
+| `always`, `optional`, `defer`, `merge`, `prepend`, `deepMerge`, `once`, `scroll` | The [prop helpers](#prop-types) |
+| `request` | The parsed Inertia request headers |
+
+Everything destructures, since the methods don't rely on `this`, and
+`errors()`, `flash()` and the history flags chain:
+
+```ts
+.get('/dashboard', ({ inertia: { render, defer } }) =>
+	render('dashboard', { stats: defer(() => loadStats()) })
+)
+.put('/users/:id', ({ inertia: { errors } }) => errors({ email: 'Taken.' }).back())
+```
+
+### Redirects
+
+`redirect()` answers 303 so the client follows with a GET after any method,
+and errors or flash set on the request carry over. It fills a route pattern's
+`params` and appends `query`; an origin, existing query or `#hash` pass through:
+
+```ts
+.post('/users', ({ inertia, body }) => {
+	const user = db.users.create(body)
+	return inertia.flash('toast', 'Created').redirect('/users/:id', { params: { id: user.id } })
+})
+```
+
+The path isn't checked against the app's routes: a handler of the registered
+app can't take its argument types from `typeof app` without that type
+referring to itself. For a checked path, build it with `createRoutes()` from
+a plugin the handler isn't part of, e.g. `redirect(usersRoutes.url('/users/:id', { params }))`.
+
+A plain `302` from Elysia's own `redirect` or `back()` after PUT, PATCH or
+DELETE is sent as `303` too, so the browser doesn't repeat the method.
+
+### Vite assets
+
 `vite` loads your client entry on the initial load. In dev (`NODE_ENV` isn't
 `production`) it adds the dev server's `@vite/client`, the entry, and with
 `react: true` the React Refresh preamble `@vitejs/plugin-react` needs. In
@@ -62,60 +138,6 @@ Serve the build yourself, e.g. with `@elysiajs/static` at the same `base`.
 `viteTags(options)` returns the same tags for HTML outside Inertia, and
 `viteVersion(manifest)` the version alone.
 
-```ts
-// server/index.ts
-import { Elysia } from 'elysia'
-import { pages } from './inertia'
-
-export const app = new Elysia()
-	.use(pages)
-	// Macro: binds the route to a page and adds a typed `render`
-	.get('/users', { inertia: 'users/index' }, ({ render }) =>
-		render({ users: () => db.users.all() })
-	)
-	// Or the context API
-	.get('/posts/:id', ({ inertia, params }) =>
-		inertia.render('posts/show', { post: db.posts.find(params.id) })
-	)
-	.delete('/posts/:id', ({ redirect }) => redirect('/posts')) // sent as 303
-	.get('/docs', ({ inertia }) => inertia.location('https://example.com'))
-```
-
-Options: `vite`, `version`, `share`, `rootView`, `id` (mount id, default `app`),
-`ssr` (`{ render }` or `{ url }` of an Inertia SSR server; falls back to
-client rendering on failure or after `timeout` ms, default 5000), `encryptHistory`.
-
-Context (`inertia`): `render(component, props?, { status? })`, `errors()`, `flash()`,
-`clearHistory()`, `encryptHistory()`,
-`redirect(path, { params?, query? })`, `location(url)`, `back(fallback?)`,
-`request` (parsed Inertia headers), and the prop helpers below (`defer`,
-`optional`, `always`, `merge`, …). Everything destructures:
-
-```ts
-.get('/dashboard', ({ inertia: { render, defer } }) =>
-	render('dashboard', { stats: defer(() => loadStats()) })
-)
-```
-
-`redirect()` answers 303 so the client follows with a GET after any method,
-and errors or flash set on the request carry over. It fills a route pattern's
-`params` and appends `query`; an origin, existing query or `#hash` pass through:
-
-```ts
-.post('/users', ({ inertia, body }) => {
-	const user = db.users.create(body)
-	return inertia.flash('toast', 'Created').redirect('/users/:id', { params: { id: user.id } })
-})
-```
-
-The path isn't checked against the app's routes: a handler of the registered
-app can't take its argument types from `typeof app` without that type
-referring to itself. For a checked path, build it with `createRoutes()` from
-a plugin the handler isn't part of, e.g. `redirect(usersRoutes.url('/users/:id', { params }))`.
-
-Props may be functions or promises; they're resolved at render time, and
-only when the prop is actually sent.
-
 ### Shared props
 
 Props every page gets are declared once and inferred into `usePage()`; no
@@ -138,7 +160,8 @@ one of the same name.
 
 ## Prop types
 
-The helpers are imports too, for props built outside a handler:
+Take the helpers from `inertia` in a handler, or import them for props built
+outside one; they're the same functions:
 
 ```ts
 import { always, defer, optional } from 'elysia-inertia'
@@ -198,7 +221,7 @@ that field's message.
 are checked against the schema's dot paths (`FieldPath<Body>`), the same keys
 `form.errors` reads on the client. Spread it to add other options:
 `{ ...formBody(schema), detail }`. `errors()` chains into `back()`,
-`location()` or `render()`; flash through `inertia.flash()`. `inertia.errors()` accepts any keys, or
+`redirect()`, `location()` or `render()`; flash through `inertia.flash()`. `inertia.errors()` accepts any keys, or
 pass the body type to check them: `inertia.errors<typeof body>(...)`.
 
 Errors and flash wait in a cookie (`inertia_flash`) until the next rendered
